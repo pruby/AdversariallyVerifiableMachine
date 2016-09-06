@@ -54,7 +54,6 @@ contract AVMTestSuite {
         );
     }
     
-    event TestState(AVMDisputeProcess.DisputeState);
     function prepareDisputeValid() returns (uint) {
         uint id = process.openDispute(
             new CountdownStepFunction(),
@@ -66,13 +65,9 @@ contract AVMTestSuite {
             300,
             15
         );
-        
-        TestState(process.getDisputeState(id));
-        
+
         process.doConfirmComplaint(id, process.getNextAntiReplayTag(id), false);
-        
-        TestState(process.getDisputeState(id));
-        
+
         bytes32[] memory states = new bytes32[](15);
         uint step = 62500;
         uint number = 62500;
@@ -82,13 +77,9 @@ contract AVMTestSuite {
         }
         
         process.doProvideStateRoots(id, process.getNextAntiReplayTag(id), states);
-        
-        TestState(process.getDisputeState(id));
-        
+
         process.doSelectDisputedStateRoot(id, process.getNextAntiReplayTag(id), 5);
-        
-        TestState(process.getDisputeState(id));
-        
+
         number = 316406;
         step = 320312 - number;
         for (i = 0; i < 15; i++) {
@@ -97,13 +88,9 @@ contract AVMTestSuite {
         }
         
         process.doProvideStateRoots(id, process.getNextAntiReplayTag(id), states);
-        
-        TestState(process.getDisputeState(id));
-        
+
         process.doSelectDisputedStateRoot(id, process.getNextAntiReplayTag(id), 15);
-        
-        TestState(process.getDisputeState(id));
-        
+
         number = 371334;
         step = 371578 - number;
         for (i = 0; i < 15; i++) {
@@ -112,13 +99,9 @@ contract AVMTestSuite {
         }
         
         process.doProvideStateRoots(id, process.getNextAntiReplayTag(id), states);
-        
-        TestState(process.getDisputeState(id));
-        
+
         process.doSelectDisputedStateRoot(id, process.getNextAntiReplayTag(id), 0);
-        
-        TestState(process.getDisputeState(id));
-        
+
         number = 371105;
         step = 371120 - number;
         for (i = 0; i < 15; i++) {
@@ -127,13 +110,9 @@ contract AVMTestSuite {
         }
         
         process.doProvideStateRoots(id, process.getNextAntiReplayTag(id), states);
-        
-        TestState(process.getDisputeState(id));
-        
+
         process.doSelectDisputedStateRoot(id, process.getNextAntiReplayTag(id), 0);
-        
-        TestState(process.getDisputeState(id));
-        
+
         number = 371091;
         step = 1;
         states = new bytes32[](14);
@@ -143,13 +122,9 @@ contract AVMTestSuite {
         }
         
         process.doProvideStateRoots(id, process.getNextAntiReplayTag(id), states);
-        
-        TestState(process.getDisputeState(id));
-        
+
         process.doSelectDisputedStateRoot(id, process.getNextAntiReplayTag(id), 6);
-        
-        TestState(process.getDisputeState(id));
-        
+
         return id;
     }
     
@@ -166,12 +141,8 @@ contract AVMTestSuite {
         writes[3] = (uint) (sha3(calculateEphemeralMemory(371097), zeroStore));
         
         process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
-        
-        TestState(process.getDisputeState(id));
-        
+
         process.doDisputeMemoryWrite(id, process.getNextAntiReplayTag(id), 0);
-        
-        TestState(process.getDisputeState(id));
         
         bytes32[] memory proof = new bytes32[](3);
         proof[0] = sha3((bytes32) (0xdeadbeef));
@@ -179,8 +150,6 @@ contract AVMTestSuite {
         proof[2] = zeroStore;
         
         process.doProveMemoryWrite(id, process.getNextAntiReplayTag(id), proof);
-        
-        TestState(process.getDisputeState(id));
         
         return process.isResolvedForDefendant(id);
     }
@@ -198,27 +167,21 @@ contract AVMTestSuite {
         writes[3] = (uint) (sha3(calculateEphemeralMemory(371097), zeroStore));
         
         process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
-        
-        TestState(process.getDisputeState(id));
-        
+
         bytes32 zeroStore = sha3((uint) (0), (uint) (0));
         zeroStore = sha3(zeroStore, zeroStore);
         zeroStore = sha3(zeroStore, zeroStore);
         zeroStore = sha3(zeroStore, zeroStore);
         
         process.doDisputeMemoryWrite(id, process.getNextAntiReplayTag(id), 0);
-        
-        TestState(process.getDisputeState(id));
-        
+
         bytes32[] memory proof = new bytes32[](3);
         proof[0] = sha3((bytes32) (0xdeadbeef));
         proof[1] = sha3(sha3((uint) (0)), sha3((uint) (0)));
         proof[2] = zeroStore;
         
         process.doProveMemoryWrite(id, process.getNextAntiReplayTag(id), proof);
-        
-        TestState(process.getDisputeState(id));
-        
+
         return process.isResolvedForComplainant(id);
     }
     
@@ -235,22 +198,16 @@ contract AVMTestSuite {
         writes[3] = (uint) (sha3(calculateEphemeralMemory(371097), zeroStore));
         
         process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
-        
-        TestState(process.getDisputeState(id));
-        
+
         process.doDisputeMemoryRead(id, process.getNextAntiReplayTag(id), 0);
-        
-        TestState(process.getDisputeState(id));
-        
+
         bytes32[] memory proof = new bytes32[](3);
         proof[0] = sha3((bytes32) (0xdeadbeef));
         proof[1] = sha3(sha3((uint) (0)), sha3((uint) (0)));
         proof[2] = zeroStore;
         
         process.doProveMemoryRead(id, process.getNextAntiReplayTag(id), proof);
-        
-        TestState(process.getDisputeState(id));
-        
+
         return process.isResolvedForDefendant(id);
     }
 }
