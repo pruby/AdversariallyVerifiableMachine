@@ -39,6 +39,9 @@ contract AVMStepValidator {
 contract AVMDisputeProcess {
     uint disputeCount;
     mapping (uint => Dispute) disputes;
+
+    // Used for debugging (should not be emitted in production)
+    event trace(string);
     
     enum DisputeState {
         AWAIT_COMPLAINANT_CONFIRM,
@@ -457,7 +460,7 @@ contract AVMDisputeProcess {
                 return;
             }
             
-            resultState = dispute.buffer[dispute.selectedAccess * 2 + 1];
+            resultState = sha3(dispute.buffer[dispute.selectedAccess * 2 + 1]);
             for (i = 0; i < dispute.persistentStateSize; i++) {
                 if ((readAddress & 1) != 0) {
                     resultState = sha3(merkleProof[i], resultState);
@@ -485,7 +488,7 @@ contract AVMDisputeProcess {
                 return;
             }
             
-            resultState = dispute.buffer[dispute.selectedAccess * 2 + 1];
+            resultState = sha3(dispute.buffer[dispute.selectedAccess * 2 + 1]);
             for (i = 0; i < dispute.ephemeralStateSize; i++) {
                 if ((readAddress & 1) != 0) {
                     resultState = sha3(merkleProof[i], resultState);
@@ -507,7 +510,7 @@ contract AVMDisputeProcess {
             }
         }
     }
-   
+    
     function doProveMemoryWrite(uint disputeId, bytes32 antiReplayTag, bytes32[] merkleProof)
         in_state(disputeId, DisputeState.DISPUTED_WRITE)
         is_defendant(disputeId)
@@ -540,7 +543,7 @@ contract AVMDisputeProcess {
                 return;
             }
             
-            resultState = dispute.buffer[offset + dispute.selectedAccess * 4 + 1];
+            resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 1]);
             for (i = 0; i < dispute.persistentStateSize; i++) {
                 if ((writeAddress & 1) != 0) {
                     resultState = sha3(merkleProof[i], resultState);
@@ -558,7 +561,7 @@ contract AVMDisputeProcess {
             }
             
             writeAddress = (uint) (dispute.buffer[offset + dispute.selectedAccess * 4]);
-            resultState = dispute.buffer[offset + dispute.selectedAccess * 4 + 2];
+            resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 2]);
             for (i = 0; i < dispute.persistentStateSize; i++) {
                 if ((writeAddress & 1) != 0) {
                     resultState = sha3(merkleProof[i], resultState);
@@ -582,11 +585,12 @@ contract AVMDisputeProcess {
             // Accessing ephemeral state
             if (merkleProof.length != dispute.ephemeralStateSize + 1) {
                 // Invalid proof length
+                trace("Invalid proof length");
                 transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
                 return;
             }
                         
-            resultState = dispute.buffer[offset + dispute.selectedAccess * 4 + 1];
+            resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 1]);
             for (i = 0; i < dispute.ephemeralStateSize; i++) {
                 if ((writeAddress & 1) != 0) {
                     resultState = sha3(merkleProof[i], resultState);
@@ -599,12 +603,13 @@ contract AVMDisputeProcess {
             resultState = sha3(resultState, merkleProof[dispute.ephemeralStateSize]);
             if (resultState != declaredStartState) {
                 // Invalid proof
+                trace("Invalid original state proof");
                 transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
                 return;
             }
             
             writeAddress = (uint) (dispute.buffer[offset + dispute.selectedAccess * 4]);
-            resultState = dispute.buffer[offset + dispute.selectedAccess * 4 + 2];
+            resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 2]);
             for (i = 0; i < dispute.ephemeralStateSize; i++) {
                 if ((writeAddress & 1) != 0) {
                     resultState = sha3(merkleProof[i], resultState);
@@ -617,11 +622,13 @@ contract AVMDisputeProcess {
             resultState = sha3(resultState, merkleProof[dispute.ephemeralStateSize]);
             if (resultState != dispute.buffer[offset + dispute.selectedAccess * 4 + 3]) {
                 // Invalid proof
+                trace("Invalid final state proof");
                 transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
                 return;
             }
             
             // Successfully proven
+            trace("Write proven");
             transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
             return;
         }

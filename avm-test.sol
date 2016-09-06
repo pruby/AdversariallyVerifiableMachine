@@ -25,22 +25,37 @@ contract CountdownStepFunction is AVMStepValidator {
 
 contract AVMTestSuite {
     AVMDisputeProcess public process;
+    bytes32 zeroStore;
+    
+    // Duplicate event signatures to enable debugging in browser solidity
+    // (it fails to determine which contract created an event)
+    event trace(string);
+    event DisputeProgress(uint disputeId, AVMDisputeProcess.DisputeState state);
     
     function AVMTestSuite() {
         process = new AVMDisputeProcess();
+        
+        zeroStore = sha3((uint) (0));
+        zeroStore = sha3(zeroStore, zeroStore);
+        zeroStore = sha3(zeroStore, zeroStore);
+        zeroStore = sha3(zeroStore, zeroStore);
+        zeroStore = sha3(zeroStore, zeroStore);
     }
     
     function calculateEphemeralMemory(uint step) internal returns (bytes32) {
-        return sha3(sha3((bytes32) (0xdeadbeef), (uint) (1000000 - step)), sha3((uint) (0), (uint) (0)));
+        return sha3(
+            sha3(
+                sha3((bytes32) (0xdeadbeef)),
+                sha3((uint) (1000000 - step))
+            ), sha3(
+                sha3((uint) (0)),
+                sha3((uint) (0))
+            )
+        );
     }
     
     event TestState(AVMDisputeProcess.DisputeState);
     function prepareDisputeValid() returns (uint) {
-        bytes32 zeroStore = sha3((uint) (0), (uint) (0));
-        zeroStore = sha3(zeroStore, zeroStore);
-        zeroStore = sha3(zeroStore, zeroStore);
-        zeroStore = sha3(zeroStore, zeroStore);
-        
         uint id = process.openDispute(
             new CountdownStepFunction(),
             this,
@@ -139,11 +154,6 @@ contract AVMTestSuite {
     }
     
     function testDisputedWriteValid(uint id) returns (bool) {
-        bytes32 zeroStore = sha3((uint) (0), (uint) (0));
-        zeroStore = sha3(zeroStore, zeroStore);
-        zeroStore = sha3(zeroStore, zeroStore);
-        zeroStore = sha3(zeroStore, zeroStore);
-        
         uint[] memory reads = new uint[](2);
         uint[] memory writes = new uint[](4);
         
@@ -164,8 +174,8 @@ contract AVMTestSuite {
         TestState(process.getDisputeState(id));
         
         bytes32[] memory proof = new bytes32[](3);
-        proof[0] = (bytes32) (0xdeadbeef);
-        proof[1] = sha3((uint) (0), (uint) (0));
+        proof[0] = sha3((bytes32) (0xdeadbeef));
+        proof[1] = sha3(sha3((uint) (0)), sha3((uint) (0)));
         proof[2] = zeroStore;
         
         process.doProveMemoryWrite(id, process.getNextAntiReplayTag(id), proof);
@@ -175,7 +185,7 @@ contract AVMTestSuite {
         return process.isResolvedForDefendant(id);
     }
     
-    function testDisputedWriteInvalid(uint id) returns (bool) {
+    function testDisputedWriteDifferentValueInState(uint id) returns (bool) {
         uint[] memory reads = new uint[](2);
         uint[] memory writes = new uint[](4);
         
@@ -201,8 +211,8 @@ contract AVMTestSuite {
         TestState(process.getDisputeState(id));
         
         bytes32[] memory proof = new bytes32[](3);
-        proof[0] = (bytes32) (0xdeadbeef);
-        proof[1] = sha3((uint) (0), (uint) (0));
+        proof[0] = sha3((bytes32) (0xdeadbeef));
+        proof[1] = sha3(sha3((uint) (0)), sha3((uint) (0)));
         proof[2] = zeroStore;
         
         process.doProveMemoryWrite(id, process.getNextAntiReplayTag(id), proof);
@@ -210,5 +220,37 @@ contract AVMTestSuite {
         TestState(process.getDisputeState(id));
         
         return process.isResolvedForComplainant(id);
+    }
+    
+    function testDisputedReadValid(uint id) returns (bool) {
+        uint[] memory reads = new uint[](2);
+        uint[] memory writes = new uint[](4);
+        
+        reads[0] = 1;
+        reads[1] = 1000000 - 371096;
+        
+        writes[0] = 1;
+        writes[1] = 1000000 - 371096;
+        writes[2] = 1000000 - 371097;
+        writes[3] = (uint) (sha3(calculateEphemeralMemory(371097), zeroStore));
+        
+        process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
+        
+        TestState(process.getDisputeState(id));
+        
+        process.doDisputeMemoryRead(id, process.getNextAntiReplayTag(id), 0);
+        
+        TestState(process.getDisputeState(id));
+        
+        bytes32[] memory proof = new bytes32[](3);
+        proof[0] = sha3((bytes32) (0xdeadbeef));
+        proof[1] = sha3(sha3((uint) (0)), sha3((uint) (0)));
+        proof[2] = zeroStore;
+        
+        process.doProveMemoryRead(id, process.getNextAntiReplayTag(id), proof);
+        
+        TestState(process.getDisputeState(id));
+        
+        return process.isResolvedForDefendant(id);
     }
 }
