@@ -27,13 +27,13 @@ contract CountdownStepFunction is AVMStepValidator {
     }
     
     function getMemoryWordsLog2() returns (uint) {
-        return (10);
+        return (20);
     }
 }
 
 contract AVMTestSuite {
     AVMDisputeProcess public process;
-    bytes32[10] zeroStore;
+    bytes32[20] zeroStore;
     
     // Duplicate event signatures to enable debugging in browser solidity
     // (it fails to determine which contract created an event)
@@ -55,10 +55,21 @@ contract AVMTestSuite {
         zeroStore[7] = sha3(zeroStore[6], zeroStore[6]);
         zeroStore[8] = sha3(zeroStore[7], zeroStore[7]);
         zeroStore[9] = sha3(zeroStore[8], zeroStore[8]);
+        zeroStore[10] = sha3(zeroStore[9], zeroStore[9]);
+        zeroStore[11] = sha3(zeroStore[10], zeroStore[10]);
+        zeroStore[12] = sha3(zeroStore[11], zeroStore[11]);
+        zeroStore[13] = sha3(zeroStore[12], zeroStore[12]);
+        zeroStore[14] = sha3(zeroStore[13], zeroStore[13]);
+        zeroStore[15] = sha3(zeroStore[14], zeroStore[14]);
+        zeroStore[16] = sha3(zeroStore[15], zeroStore[15]);
+        zeroStore[17] = sha3(zeroStore[16], zeroStore[16]);
+        zeroStore[18] = sha3(zeroStore[17], zeroStore[17]);
+        zeroStore[19] = sha3(zeroStore[18], zeroStore[18]);
     }
     
     function calculateMemoryState(uint step) internal returns (bytes32) {
         return sha3(sha3(sha3(sha3(sha3(sha3(sha3(sha3(sha3(
+            sha3(sha3(sha3(sha3(sha3(sha3(sha3(sha3(sha3(sha3(
             sha3(
                 sha3((bytes32) (0xdeadbeef)),
                 sha3((uint) (1000000 - step))
@@ -71,11 +82,21 @@ contract AVMTestSuite {
             , zeroStore[6])
             , zeroStore[7])
             , zeroStore[8])
-            , zeroStore[9]
+            , zeroStore[9])
+            , zeroStore[10])
+            , zeroStore[11])
+            , zeroStore[12])
+            , zeroStore[13])
+            , zeroStore[14])
+            , zeroStore[15])
+            , zeroStore[16])
+            , zeroStore[17])
+            , zeroStore[18])
+            , zeroStore[19]
         );
     }
     
-    function prepareDisputeValid() internal returns (uint) {
+    function prepareDisputeValid() returns (uint) {
         uint id = process.openDispute(
             new CountdownStepFunction(),
             this,
@@ -86,9 +107,7 @@ contract AVMTestSuite {
             300,
             15
         );
-
-        process.doConfirmComplaint(id, process.getNextAntiReplayTag(id), false);
-
+        
         bytes32[] memory states = new bytes32[](15);
         uint step = 62500;
         uint number = 62500;
@@ -167,7 +186,7 @@ contract AVMTestSuite {
 
         process.doDisputeMemoryWrite(id, process.getNextAntiReplayTag(id), 0);
         
-        bytes32[] memory proof = new bytes32[](10);
+        bytes32[] memory proof = new bytes32[](20);
         proof[0] = sha3((bytes32) (0xdeadbeef));
         proof[1] = zeroStore[1];
         proof[2] = zeroStore[2];
@@ -178,6 +197,16 @@ contract AVMTestSuite {
         proof[7] = zeroStore[7];
         proof[8] = zeroStore[8];
         proof[9] = zeroStore[9];
+        proof[10] = zeroStore[10];
+        proof[11] = zeroStore[11];
+        proof[12] = zeroStore[12];
+        proof[13] = zeroStore[13];
+        proof[14] = zeroStore[14];
+        proof[15] = zeroStore[15];
+        proof[16] = zeroStore[16];
+        proof[17] = zeroStore[17];
+        proof[18] = zeroStore[18];
+        proof[19] = zeroStore[19];
 
         process.doProveMemoryWrite(id, process.getNextAntiReplayTag(id), proof);
         
@@ -202,7 +231,7 @@ contract AVMTestSuite {
 
         process.doDisputeMemoryWrite(id, process.getNextAntiReplayTag(id), 0);
 
-        bytes32[] memory proof = new bytes32[](10);
+        bytes32[] memory proof = new bytes32[](20);
         proof[0] = sha3((bytes32) (0xdeadbeef));
         proof[1] = zeroStore[1];
         proof[2] = zeroStore[2];
@@ -213,6 +242,16 @@ contract AVMTestSuite {
         proof[7] = zeroStore[7];
         proof[8] = zeroStore[8];
         proof[9] = zeroStore[9];
+        proof[10] = zeroStore[10];
+        proof[11] = zeroStore[11];
+        proof[12] = zeroStore[12];
+        proof[13] = zeroStore[13];
+        proof[14] = zeroStore[14];
+        proof[15] = zeroStore[15];
+        proof[16] = zeroStore[16];
+        proof[17] = zeroStore[17];
+        proof[18] = zeroStore[18];
+        proof[19] = zeroStore[19];
         
         process.doProveMemoryWrite(id, process.getNextAntiReplayTag(id), proof);
 
@@ -237,7 +276,7 @@ contract AVMTestSuite {
 
         process.doDisputeMemoryRead(id, process.getNextAntiReplayTag(id), 0);
 
-        bytes32[] memory proof = new bytes32[](10);
+        bytes32[] memory proof = new bytes32[](20);
         proof[0] = sha3((bytes32) (0xdeadbeef));
         proof[1] = zeroStore[1];
         proof[2] = zeroStore[2];
@@ -248,6 +287,16 @@ contract AVMTestSuite {
         proof[7] = zeroStore[7];
         proof[8] = zeroStore[8];
         proof[9] = zeroStore[9];
+        proof[10] = zeroStore[10];
+        proof[11] = zeroStore[11];
+        proof[12] = zeroStore[12];
+        proof[13] = zeroStore[13];
+        proof[14] = zeroStore[14];
+        proof[15] = zeroStore[15];
+        proof[16] = zeroStore[16];
+        proof[17] = zeroStore[17];
+        proof[18] = zeroStore[18];
+        proof[19] = zeroStore[19];
 
         process.doProveMemoryRead(id, process.getNextAntiReplayTag(id), proof);
 

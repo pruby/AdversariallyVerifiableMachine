@@ -37,7 +37,6 @@ contract AVMDisputeProcess {
     event trace(string);
     
     enum DisputeState {
-        AWAIT_COMPLAINANT_CONFIRM,
         AWAIT_STEP_ROOTS,
         AWAIT_DISPUTED_ROOT,
         AWAIT_MEMORY_ACCESSES,
@@ -110,7 +109,6 @@ contract AVMDisputeProcess {
     }
     
     function AVMDisputeProcess() {
-        disputeStateToText[(uint) (DisputeState.AWAIT_COMPLAINANT_CONFIRM)] = "awaiting complainant confirmation";
         disputeStateToText[(uint) (DisputeState.AWAIT_STEP_ROOTS)] = "awaiting state roots from defendant";
         disputeStateToText[(uint) (DisputeState.AWAIT_DISPUTED_ROOT)] = "awaiting complainant's selection of disputed root";
         disputeStateToText[(uint) (DisputeState.AWAIT_MEMORY_ACCESSES)] = "awaiting memory accesses from defendant";
@@ -235,7 +233,7 @@ contract AVMDisputeProcess {
         dispute.maxResponseStates = maxResponseStates;
         dispute.memoryStateSize = step.getMemoryWordsLog2();
         
-        dispute.state = DisputeState.AWAIT_COMPLAINANT_CONFIRM;
+        dispute.state = DisputeState.AWAIT_STEP_ROOTS;
         dispute.lastResponseTime = now;
         dispute.antiReplayTag = sha3(disputeId, block.blockhash(0));
         
@@ -269,24 +267,11 @@ contract AVMDisputeProcess {
         Dispute storage dispute = disputes[disputeId];
 
         if (dispute.lastResponseTime + dispute.maxResponseDelay < now) {
-            if (dispute.state == DisputeState.AWAIT_COMPLAINANT_CONFIRM ||
-                dispute.state == DisputeState.AWAIT_DISPUTED_ROOT ||
+            if (dispute.state == DisputeState.AWAIT_DISPUTED_ROOT ||
                 dispute.state == DisputeState.AWAIT_COMPLAINANT_CHOICE ) {
                 transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
             }
         }
-    }
-
-    function doConfirmComplaint(uint disputeId, bytes32 antiReplayTag, bool finalityCheck)
-        in_state(disputeId, DisputeState.AWAIT_COMPLAINANT_CONFIRM)
-        is_complainant(disputeId)
-        check_replay_tag(disputeId, antiReplayTag) {
-        // The complainant chooses whether to let the final step number stand, or add one.
-        // In either case, the state must be the same to prove that the state is final.
-        if (finalityCheck) {
-            disputes[disputeId].lastDisputedStep++;
-        }
-        transition(disputeId, DisputeState.AWAIT_STEP_ROOTS);
     }
     
     /*
@@ -397,7 +382,7 @@ contract AVMDisputeProcess {
             }
             transition(disputeId, DisputeState.AWAIT_COMPLAINANT_CHOICE);
         }
-   }
+    }
     
     function doDisputeMemoryRead(uint disputeId, bytes32 antiReplayTag, uint readId)
         in_state(disputeId, DisputeState.AWAIT_COMPLAINANT_CHOICE)
@@ -409,7 +394,7 @@ contract AVMDisputeProcess {
             dispute.selectedAccess = readId;
             transition(disputeId, DisputeState.DISPUTED_READ);
         }
-   }
+    }
     
     function doDisputeMemoryWrite(uint disputeId, bytes32 antiReplayTag, uint writeId)
         in_state(disputeId, DisputeState.AWAIT_COMPLAINANT_CHOICE)
@@ -421,7 +406,7 @@ contract AVMDisputeProcess {
             dispute.selectedAccess = writeId;
             transition(disputeId, DisputeState.DISPUTED_WRITE);
         }
-   }
+    }
     
     function doDisputeMemoryAccessSequence(uint disputeId, bytes32 antiReplayTag)
         in_state(disputeId, DisputeState.AWAIT_COMPLAINANT_CHOICE)
@@ -452,7 +437,7 @@ contract AVMDisputeProcess {
         } else {
             transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
         }
-   }
+    }
    
     function doProveMemoryRead(uint disputeId, bytes32 antiReplayTag, bytes32[] merkleProof)
         in_state(disputeId, DisputeState.DISPUTED_READ)
@@ -565,5 +550,5 @@ contract AVMDisputeProcess {
         trace("Write proven");
         transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
         return;
-   }
+    }
 }
