@@ -1,66 +1,87 @@
-import 'AVM';
+import 'AVMDisputeProcess.sol';
 
 contract CountdownStepFunction is AVMStepValidator {
+    event StepCall(uint256[] readAccesses, uint256[] writeAccesses);
+    event cdtrace(string);
     function validateStep(uint256[] readAccesses, uint256[] writeAccesses) external returns (bool) {
+        StepCall(readAccesses, writeAccesses);
         if (readAccesses.length == 2 && readAccesses[0] == 1) {
             // Read OK
+            cdtrace("read ok");
             if (writeAccesses.length == 2 && writeAccesses[0] == 1) {
                 // Write address ok
+                cdtrace("write address ok");
                 if (readAccesses[1] > 0 && writeAccesses[1] == readAccesses[1] - 1) {
                     // Correctly applied
+                    cdtrace("write value ok");
                     return true;
                 }
             } else if (readAccesses[1] == 0 && writeAccesses.length == 0) {
                 // No write if we hit zero
+                cdtrace("no write because zero");
                 return true;
             }
         }
+        cdtrace("did not match sequence");
         return false;
     }
     
-    function getStateSizes() returns (uint, uint) {
-        return (2, 4);
+    function getMemoryWordsLog2() returns (uint) {
+        return (10);
     }
 }
 
 contract AVMTestSuite {
     AVMDisputeProcess public process;
-    bytes32 zeroStore;
+    bytes32[10] zeroStore;
     
     // Duplicate event signatures to enable debugging in browser solidity
     // (it fails to determine which contract created an event)
     event trace(string);
     event DisputeProgress(uint disputeId, AVMDisputeProcess.DisputeState state);
+    event StepCall(uint256[] readAccesses, uint256[] writeAccesses);
+    event cdtrace(string);
     
     function AVMTestSuite() {
         process = new AVMDisputeProcess();
         
-        zeroStore = sha3((uint) (0));
-        zeroStore = sha3(zeroStore, zeroStore);
-        zeroStore = sha3(zeroStore, zeroStore);
-        zeroStore = sha3(zeroStore, zeroStore);
-        zeroStore = sha3(zeroStore, zeroStore);
+        zeroStore[0] = sha3((uint) (0));
+        zeroStore[1] = sha3(zeroStore[0], zeroStore[0]);
+        zeroStore[2] = sha3(zeroStore[1], zeroStore[1]);
+        zeroStore[3] = sha3(zeroStore[2], zeroStore[2]);
+        zeroStore[4] = sha3(zeroStore[3], zeroStore[3]);
+        zeroStore[5] = sha3(zeroStore[4], zeroStore[4]);
+        zeroStore[6] = sha3(zeroStore[5], zeroStore[5]);
+        zeroStore[7] = sha3(zeroStore[6], zeroStore[6]);
+        zeroStore[8] = sha3(zeroStore[7], zeroStore[7]);
+        zeroStore[9] = sha3(zeroStore[8], zeroStore[8]);
     }
     
-    function calculateEphemeralMemory(uint step) internal returns (bytes32) {
-        return sha3(
+    function calculateMemoryState(uint step) internal returns (bytes32) {
+        return sha3(sha3(sha3(sha3(sha3(sha3(sha3(sha3(sha3(
             sha3(
                 sha3((bytes32) (0xdeadbeef)),
                 sha3((uint) (1000000 - step))
-            ), sha3(
-                sha3((uint) (0)),
-                sha3((uint) (0))
             )
+            , zeroStore[1])
+            , zeroStore[2])
+            , zeroStore[3])
+            , zeroStore[4])
+            , zeroStore[5])
+            , zeroStore[6])
+            , zeroStore[7])
+            , zeroStore[8])
+            , zeroStore[9]
         );
     }
     
-    function prepareDisputeValid() returns (uint) {
+    function prepareDisputeValid() internal returns (uint) {
         uint id = process.openDispute(
             new CountdownStepFunction(),
             this,
             this,
-            sha3(calculateEphemeralMemory(0), zeroStore),
-            sha3(calculateEphemeralMemory(1000000), zeroStore),
+            calculateMemoryState(0),
+            calculateMemoryState(1000000),
             1000000,
             300,
             15
@@ -72,7 +93,7 @@ contract AVMTestSuite {
         uint step = 62500;
         uint number = 62500;
         for (uint i = 0; i < 15; i++) {
-            states[i] = sha3(calculateEphemeralMemory(number), zeroStore);
+            states[i] = calculateMemoryState(number);
             number += step;
         }
         
@@ -83,7 +104,7 @@ contract AVMTestSuite {
         number = 316406;
         step = 320312 - number;
         for (i = 0; i < 15; i++) {
-            states[i] = sha3(calculateEphemeralMemory(number), zeroStore);
+            states[i] = calculateMemoryState(number);
             number += step;
         }
         
@@ -94,7 +115,7 @@ contract AVMTestSuite {
         number = 371334;
         step = 371578 - number;
         for (i = 0; i < 15; i++) {
-            states[i] = sha3(calculateEphemeralMemory(number), zeroStore);
+            states[i] = calculateMemoryState(number);
             number += step;
         }
         
@@ -105,7 +126,7 @@ contract AVMTestSuite {
         number = 371105;
         step = 371120 - number;
         for (i = 0; i < 15; i++) {
-            states[i] = sha3(calculateEphemeralMemory(number), zeroStore);
+            states[i] = calculateMemoryState(number);
             number += step;
         }
         
@@ -117,7 +138,7 @@ contract AVMTestSuite {
         step = 1;
         states = new bytes32[](14);
         for (i = 0; i < 14; i++) {
-            states[i] = sha3(calculateEphemeralMemory(number), zeroStore);
+            states[i] = calculateMemoryState(number);
             number += step;
         }
         
@@ -128,7 +149,9 @@ contract AVMTestSuite {
         return id;
     }
     
-    function testDisputedWriteValid(uint id) returns (bool) {
+    function testDisputedWriteValid() returns (bool) {
+        uint id = prepareDisputeValid();
+        
         uint[] memory reads = new uint[](2);
         uint[] memory writes = new uint[](4);
         
@@ -138,23 +161,32 @@ contract AVMTestSuite {
         writes[0] = 1;
         writes[1] = 1000000 - 371096;
         writes[2] = 1000000 - 371097;
-        writes[3] = (uint) (sha3(calculateEphemeralMemory(371097), zeroStore));
+        writes[3] = (uint) (calculateMemoryState(371097));
         
         process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
 
         process.doDisputeMemoryWrite(id, process.getNextAntiReplayTag(id), 0);
         
-        bytes32[] memory proof = new bytes32[](3);
+        bytes32[] memory proof = new bytes32[](10);
         proof[0] = sha3((bytes32) (0xdeadbeef));
-        proof[1] = sha3(sha3((uint) (0)), sha3((uint) (0)));
-        proof[2] = zeroStore;
-        
+        proof[1] = zeroStore[1];
+        proof[2] = zeroStore[2];
+        proof[3] = zeroStore[3];
+        proof[4] = zeroStore[4];
+        proof[5] = zeroStore[5];
+        proof[6] = zeroStore[6];
+        proof[7] = zeroStore[7];
+        proof[8] = zeroStore[8];
+        proof[9] = zeroStore[9];
+
         process.doProveMemoryWrite(id, process.getNextAntiReplayTag(id), proof);
         
         return process.isResolvedForDefendant(id);
     }
     
-    function testDisputedWriteDifferentValueInState(uint id) returns (bool) {
+    function testDisputedWriteDifferentValueInState() returns (bool) {
+        uint id = prepareDisputeValid();
+        
         uint[] memory reads = new uint[](2);
         uint[] memory writes = new uint[](4);
         
@@ -164,28 +196,32 @@ contract AVMTestSuite {
         writes[0] = 1;
         writes[1] = 1000000 - 371096;
         writes[2] = 1000000 - 371094;
-        writes[3] = (uint) (sha3(calculateEphemeralMemory(371097), zeroStore));
+        writes[3] = (uint) (calculateMemoryState(371097));
         
         process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
 
-        bytes32 zeroStore = sha3((uint) (0), (uint) (0));
-        zeroStore = sha3(zeroStore, zeroStore);
-        zeroStore = sha3(zeroStore, zeroStore);
-        zeroStore = sha3(zeroStore, zeroStore);
-        
         process.doDisputeMemoryWrite(id, process.getNextAntiReplayTag(id), 0);
 
-        bytes32[] memory proof = new bytes32[](3);
+        bytes32[] memory proof = new bytes32[](10);
         proof[0] = sha3((bytes32) (0xdeadbeef));
-        proof[1] = sha3(sha3((uint) (0)), sha3((uint) (0)));
-        proof[2] = zeroStore;
+        proof[1] = zeroStore[1];
+        proof[2] = zeroStore[2];
+        proof[3] = zeroStore[3];
+        proof[4] = zeroStore[4];
+        proof[5] = zeroStore[5];
+        proof[6] = zeroStore[6];
+        proof[7] = zeroStore[7];
+        proof[8] = zeroStore[8];
+        proof[9] = zeroStore[9];
         
         process.doProveMemoryWrite(id, process.getNextAntiReplayTag(id), proof);
 
         return process.isResolvedForComplainant(id);
     }
     
-    function testDisputedReadValid(uint id) returns (bool) {
+    function testDisputedReadValid() returns (bool) {
+        uint id = prepareDisputeValid();
+        
         uint[] memory reads = new uint[](2);
         uint[] memory writes = new uint[](4);
         
@@ -195,19 +231,110 @@ contract AVMTestSuite {
         writes[0] = 1;
         writes[1] = 1000000 - 371096;
         writes[2] = 1000000 - 371097;
-        writes[3] = (uint) (sha3(calculateEphemeralMemory(371097), zeroStore));
+        writes[3] = (uint) (calculateMemoryState(371097));
         
         process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
 
         process.doDisputeMemoryRead(id, process.getNextAntiReplayTag(id), 0);
 
-        bytes32[] memory proof = new bytes32[](3);
+        bytes32[] memory proof = new bytes32[](10);
         proof[0] = sha3((bytes32) (0xdeadbeef));
-        proof[1] = sha3(sha3((uint) (0)), sha3((uint) (0)));
-        proof[2] = zeroStore;
-        
+        proof[1] = zeroStore[1];
+        proof[2] = zeroStore[2];
+        proof[3] = zeroStore[3];
+        proof[4] = zeroStore[4];
+        proof[5] = zeroStore[5];
+        proof[6] = zeroStore[6];
+        proof[7] = zeroStore[7];
+        proof[8] = zeroStore[8];
+        proof[9] = zeroStore[9];
+
         process.doProveMemoryRead(id, process.getNextAntiReplayTag(id), proof);
 
         return process.isResolvedForDefendant(id);
+    }
+    
+    function testDisputedValidMemoryAccessSequence() returns (bool) {
+        uint id = prepareDisputeValid();
+        
+        uint[] memory reads = new uint[](2);
+        uint[] memory writes = new uint[](4);
+        
+        reads[0] = 1;
+        reads[1] = 1000000 - 371096;
+        
+        writes[0] = 1;
+        writes[1] = 1000000 - 371096;
+        writes[2] = 1000000 - 371097;
+        writes[3] = (uint) (calculateMemoryState(371097));
+        
+        process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
+
+        process.doDisputeMemoryAccessSequence(id, process.getNextAntiReplayTag(id));
+
+        return process.isResolvedForDefendant(id);
+    }
+    
+    function testDisputedInvalidSequenceWrongWriteValue() returns (bool) {
+        uint id = prepareDisputeValid();
+        
+        uint[] memory reads = new uint[](2);
+        uint[] memory writes = new uint[](4);
+        
+        reads[0] = 1;
+        reads[1] = 1000000 - 371096;
+        
+        writes[0] = 1;
+        writes[1] = 1000000 - 371096;
+        writes[2] = 1000000 - 371095;
+        writes[3] = (uint) (calculateMemoryState(371097));
+        
+        process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
+
+        process.doDisputeMemoryAccessSequence(id, process.getNextAntiReplayTag(id));
+
+        return process.isResolvedForComplainant(id);
+    }
+    
+    function testDisputedInvalidSequenceWrongReadAddress() returns (bool) {
+        uint id = prepareDisputeValid();
+
+        uint[] memory reads = new uint[](2);
+        uint[] memory writes = new uint[](4);
+        
+        reads[0] = 3;
+        reads[1] = 1000000 - 371096;
+        
+        writes[0] = 1;
+        writes[1] = 1000000 - 371096;
+        writes[2] = 1000000 - 371097;
+        writes[3] = (uint) (calculateMemoryState(371097));
+        
+        process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
+
+        process.doDisputeMemoryAccessSequence(id, process.getNextAntiReplayTag(id));
+
+        return process.isResolvedForComplainant(id);
+    }
+    
+    function testDisputedInvalidSequenceWrongWriteAddress() returns (bool) {
+        uint id = prepareDisputeValid();
+
+        uint[] memory reads = new uint[](2);
+        uint[] memory writes = new uint[](4);
+        
+        reads[0] = 1;
+        reads[1] = 1000000 - 371096;
+        
+        writes[0] = 3;
+        writes[1] = 1000000 - 371096;
+        writes[2] = 1000000 - 371097;
+        writes[3] = (uint) (calculateMemoryState(371097));
+        
+        process.doProvideMemoryAccesses(id, process.getNextAntiReplayTag(id), reads, writes);
+
+        process.doDisputeMemoryAccessSequence(id, process.getNextAntiReplayTag(id));
+
+        return process.isResolvedForComplainant(id);
     }
 }

@@ -19,26 +19,19 @@ contract AVMStepValidator {
     function validateStep(uint256[] readAccesses, uint256[] writeAccesses) external returns (bool);
     
     /*
-        Return the memory state sizes used by this machine, as the power of two
+        Return the memory state size used by this machine, as the power of two
         number of words.
         
-        This is divided in to the first, nominally "ephemeral" state and the last,
-        nominally "persistent" state. Each of these must have a power of two size,
-        however the sum of their sizes is not necessarily a power of two.
-        
-        If a size is 16, then the memory space is implicitly 2**16 words, each word
+        If the size is 16, then the memory space is implicitly 2**16 words, each word
         being 256 bits.
-        
-        The reason for having two memories is that we force the top level of the
-        Merkle tree to combine these even if they have different depths, making it
-        easy to clear or reset one memory without altering the other.
     */
-    function getStateSizes() returns (uint, uint);
+    function getMemoryWordsLog2() returns (uint);
 }
 
 contract AVMDisputeProcess {
     uint disputeCount;
     mapping (uint => Dispute) disputes;
+    mapping (uint => string) public disputeStateToText;
 
     // Used for debugging (should not be emitted in production)
     event trace(string);
@@ -56,7 +49,7 @@ contract AVMDisputeProcess {
     }
     
     modifier in_state(uint disputeId, DisputeState state) {
-        if (((uint) (disputes[disputeId].step) != 0) && (disputes[disputeId].state == state)) _
+        if (((uint) (disputes[disputeId].step) != 0) && (disputes[disputeId].state == state)) _;
     }
     
     event DisputeProgress(uint disputeId, DisputeState state);
@@ -67,11 +60,11 @@ contract AVMDisputeProcess {
     }
     
     modifier is_complainant(uint disputeId) {
-        if (msg.sender == disputes[disputeId].complainant) _
+        if (msg.sender == disputes[disputeId].complainant) _;
     }
     
     modifier is_defendant(uint disputeId) {
-        if (msg.sender == disputes[disputeId].defendant) _
+        if (msg.sender == disputes[disputeId].defendant) _;
     }
     
     // This dispute process is extremely sensitive to transaction replay, as
@@ -84,7 +77,7 @@ contract AVMDisputeProcess {
     modifier check_replay_tag(uint disputeId, bytes32 antiReplayTag) {
         if (antiReplayTag == disputes[disputeId].antiReplayTag) {
             disputes[disputeId].antiReplayTag = sha3(disputes[disputeId].antiReplayTag, block.blockhash(0));
-            _
+            _;
         }
     }
     
@@ -100,8 +93,7 @@ contract AVMDisputeProcess {
         address querySource;
         uint maxResponseDelay;
         uint maxResponseStates;
-        uint ephemeralStateSize;
-        uint persistentStateSize;
+        uint memoryStateSize;
         
         // Changeable state
         DisputeState state;
@@ -117,9 +109,26 @@ contract AVMDisputeProcess {
         bytes32[1048576] buffer;
     }
     
+    function AVMDisputeProcess() {
+        disputeStateToText[(uint) (DisputeState.AWAIT_COMPLAINANT_CONFIRM)] = "awaiting complainant confirmation";
+        disputeStateToText[(uint) (DisputeState.AWAIT_STEP_ROOTS)] = "awaiting state roots from defendant";
+        disputeStateToText[(uint) (DisputeState.AWAIT_DISPUTED_ROOT)] = "awaiting complainant's selection of disputed root";
+        disputeStateToText[(uint) (DisputeState.AWAIT_MEMORY_ACCESSES)] = "awaiting memory accesses from defendant";
+        disputeStateToText[(uint) (DisputeState.AWAIT_COMPLAINANT_CHOICE)] = "awaiting aspect of memory trace to dispute from complainant";
+        disputeStateToText[(uint) (DisputeState.DISPUTED_READ)] = "complainant disputed a read, waiting for defendant to prove read value";
+        disputeStateToText[(uint) (DisputeState.DISPUTED_WRITE)] = "complainant disputed write, waiting for defendant to prove write transition";
+        disputeStateToText[(uint) (DisputeState.RESOLVED_FOR_DEFENDANT)] = "resolved (defendant won)";
+        disputeStateToText[(uint) (DisputeState.RESOLVED_FOR_COMPLAINANT)] = "resolved (complainant won)";
+    }
+    
     function getDisputeState(uint disputeId) constant returns (DisputeState) {
         Dispute storage dispute = disputes[disputeId];
         return dispute.state;
+    }
+    
+    function getDisputeStateText(uint disputeId) constant returns (string) {
+        Dispute storage dispute = disputes[disputeId];
+        return disputeStateToText[(uint) (dispute.state)];
     }
     
     function getDisputeParticipants(uint disputeId) constant returns (address, address, address) {
@@ -132,9 +141,9 @@ contract AVMDisputeProcess {
         return (dispute.step);
     }
     
-    function getDisputeMemorySizes(uint disputeId) constant returns (uint, uint) {
+    function getDisputeMemorySize(uint disputeId) constant returns (uint) {
         Dispute storage dispute = disputes[disputeId];
-        return (dispute.ephemeralStateSize, dispute.persistentStateSize);
+        return dispute.memoryStateSize;
     }
     
     function getDisputeTimeoutState(uint disputeId) constant returns (uint, uint) {
@@ -224,7 +233,7 @@ contract AVMDisputeProcess {
         dispute.lastDisputedStateRoot = claimedFinalRoot;
         dispute.maxResponseDelay = maxResponseDelay;
         dispute.maxResponseStates = maxResponseStates;
-        (dispute.ephemeralStateSize, dispute.persistentStateSize) = step.getStateSizes();
+        dispute.memoryStateSize = step.getMemoryWordsLog2();
         
         dispute.state = DisputeState.AWAIT_COMPLAINANT_CONFIRM;
         dispute.lastResponseTime = now;
@@ -421,7 +430,18 @@ contract AVMDisputeProcess {
         Dispute storage dispute = disputes[disputeId];
         
         uint256[] memory reads = new uint256[](dispute.numReads * 2); 
-        uint256[] memory writes = new uint256[](dispute.numWrites * 4);
+        uint256[] memory writes = new uint256[](dispute.numWrites * 2);
+        
+        for (uint i = 0; i < dispute.numReads; i++) {
+            reads[2*i] = (uint256) (dispute.buffer[2*i]);
+            reads[2*i+1] = (uint256) (dispute.buffer[(2*i)+1]);
+        }
+        
+        uint offset = 2 * dispute.numReads;
+        for (i = 0; i < dispute.numWrites; i++) {
+            writes[2*i] = (uint256) (dispute.buffer[offset + (4*i)]);
+            writes[2*i+1] = (uint256) (dispute.buffer[offset + (4*i) + 2]);
+        }
         
         // Note: whereas send is expected to return false in the event of
         // stack exhaustion, the Solidity documentation states that we throw
@@ -445,69 +465,33 @@ contract AVMDisputeProcess {
         bytes32 resultState;
         uint i;
         
-        if (readAddress >= (2 ** dispute.ephemeralStateSize)) {
-            // Accessing persistent state
-            readAddress = readAddress - (2 ** dispute.ephemeralStateSize);
-            if (readAddress >= (2 ** dispute.persistentStateSize)) {
-                // Illegally large address
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-            
-            if (merkleProof.length != dispute.persistentStateSize + 1) {
-                // Invalid proof length
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-            
-            resultState = sha3(dispute.buffer[dispute.selectedAccess * 2 + 1]);
-            for (i = 0; i < dispute.persistentStateSize; i++) {
-                if ((readAddress & 1) != 0) {
-                    resultState = sha3(merkleProof[i], resultState);
-                } else {
-                    resultState = sha3(resultState, merkleProof[i]);
-                }
-                readAddress /= 2;
-            }
-            
-            resultState = sha3(merkleProof[dispute.persistentStateSize], resultState);
-            if (resultState == dispute.firstAcceptedStateRoot) {
-                // Proven
-                transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
-                return;
+        // Validate that the provided proof is of the correct length
+        if (merkleProof.length != dispute.memoryStateSize) {
+            // Invalid proof length
+            transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
+            return;
+        }
+        
+        // Validate the Merkle proof that this value lies at the stated
+        // address within the starting state root hash.
+        resultState = sha3(dispute.buffer[dispute.selectedAccess * 2 + 1]);
+        for (i = 0; i < dispute.memoryStateSize; i++) {
+            if ((readAddress & 1) != 0) {
+                resultState = sha3(merkleProof[i], resultState);
             } else {
-                // Invalid proof
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
+                resultState = sha3(resultState, merkleProof[i]);
             }
+            readAddress /= 2;
+        }
+        
+        if (resultState == dispute.firstAcceptedStateRoot) {
+            // Proven
+            transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
+            return;
         } else {
-            // Accessing ephemeral state
-            if (merkleProof.length != dispute.ephemeralStateSize + 1) {
-                // Invalid proof length
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-            
-            resultState = sha3(dispute.buffer[dispute.selectedAccess * 2 + 1]);
-            for (i = 0; i < dispute.ephemeralStateSize; i++) {
-                if ((readAddress & 1) != 0) {
-                    resultState = sha3(merkleProof[i], resultState);
-                } else {
-                    resultState = sha3(resultState, merkleProof[i]);
-                }
-                readAddress /= 2;
-            }
-            
-            resultState = sha3(resultState, merkleProof[dispute.ephemeralStateSize]);
-            if (resultState == dispute.firstAcceptedStateRoot) {
-                // Proven
-                transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
-                return;
-            } else {
-                // Invalid proof
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
+            // Invalid proof
+            transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
+            return;
         }
     }
     
@@ -528,109 +512,58 @@ contract AVMDisputeProcess {
         bytes32 resultState;
         uint i;
         
-        if (writeAddress >= (2 ** dispute.ephemeralStateSize)) {
-            // Accessing persistent state
-            writeAddress = writeAddress - (2 ** dispute.ephemeralStateSize);
-            if (writeAddress >= (2 ** dispute.persistentStateSize)) {
-                // Illegally large address
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-            
-            if (merkleProof.length != dispute.persistentStateSize + 1) {
-                // Invalid proof length
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-            
-            resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 1]);
-            for (i = 0; i < dispute.persistentStateSize; i++) {
-                if ((writeAddress & 1) != 0) {
-                    resultState = sha3(merkleProof[i], resultState);
-                } else {
-                    resultState = sha3(resultState, merkleProof[i]);
-                }
-                writeAddress /= 2;
-            }
-            
-            resultState = sha3(merkleProof[dispute.persistentStateSize], resultState);
-            if (resultState != declaredStartState) {
-                // Invalid proof
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-            
-            writeAddress = (uint) (dispute.buffer[offset + dispute.selectedAccess * 4]);
-            resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 2]);
-            for (i = 0; i < dispute.persistentStateSize; i++) {
-                if ((writeAddress & 1) != 0) {
-                    resultState = sha3(merkleProof[i], resultState);
-                } else {
-                    resultState = sha3(resultState, merkleProof[i]);
-                }
-                writeAddress /= 2;
-            }
-            
-            resultState = sha3(merkleProof[dispute.persistentStateSize], resultState);
-            if (resultState != dispute.buffer[offset + dispute.selectedAccess * 4 + 3]) {
-                // Invalid proof
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-            
-            // Successfully proven
-            transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
-            return;
-        } else {
-            // Accessing ephemeral state
-            if (merkleProof.length != dispute.ephemeralStateSize + 1) {
-                // Invalid proof length
-                trace("Invalid proof length");
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-                        
-            resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 1]);
-            for (i = 0; i < dispute.ephemeralStateSize; i++) {
-                if ((writeAddress & 1) != 0) {
-                    resultState = sha3(merkleProof[i], resultState);
-                } else {
-                    resultState = sha3(resultState, merkleProof[i]);
-                }
-                writeAddress /= 2;
-            }
-            
-            resultState = sha3(resultState, merkleProof[dispute.ephemeralStateSize]);
-            if (resultState != declaredStartState) {
-                // Invalid proof
-                trace("Invalid original state proof");
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-            
-            writeAddress = (uint) (dispute.buffer[offset + dispute.selectedAccess * 4]);
-            resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 2]);
-            for (i = 0; i < dispute.ephemeralStateSize; i++) {
-                if ((writeAddress & 1) != 0) {
-                    resultState = sha3(merkleProof[i], resultState);
-                } else {
-                    resultState = sha3(resultState, merkleProof[i]);
-                }
-                writeAddress /= 2;
-            }
-            
-            resultState = sha3(resultState, merkleProof[dispute.ephemeralStateSize]);
-            if (resultState != dispute.buffer[offset + dispute.selectedAccess * 4 + 3]) {
-                // Invalid proof
-                trace("Invalid final state proof");
-                transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
-                return;
-            }
-            
-            // Successfully proven
-            trace("Write proven");
-            transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
+        // Validate that the provided proof is of the correct length
+        if (merkleProof.length != dispute.memoryStateSize) {
+            // Invalid proof length
+            trace("Invalid proof length");
+            transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
             return;
         }
+        
+        // Validate that using the proof with the original value stated
+        // results in the original state root hash. This ensures that we
+        // can change only the affected memory location within the memory.
+        resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 1]);
+        for (i = 0; i < dispute.memoryStateSize; i++) {
+            if ((writeAddress & 1) != 0) {
+                resultState = sha3(merkleProof[i], resultState);
+            } else {
+                resultState = sha3(resultState, merkleProof[i]);
+            }
+            writeAddress /= 2;
+        }
+        
+        if (resultState != declaredStartState) {
+            // Invalid proof
+            trace("Invalid original state proof");
+            transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
+            return;
+        }
+        
+        // Validate that with the value written, the state root hash becomes
+        // the declared state root. This validates that the new state root
+        // has not been otherwise changed.
+        writeAddress = (uint) (dispute.buffer[offset + dispute.selectedAccess * 4]);
+        resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 2]);
+        for (i = 0; i < dispute.memoryStateSize; i++) {
+            if ((writeAddress & 1) != 0) {
+                resultState = sha3(merkleProof[i], resultState);
+            } else {
+                resultState = sha3(resultState, merkleProof[i]);
+            }
+            writeAddress /= 2;
+        }
+        
+        if (resultState != dispute.buffer[offset + dispute.selectedAccess * 4 + 3]) {
+            // Invalid proof
+            trace("Invalid final state proof");
+            transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
+            return;
+        }
+        
+        // Successfully proven
+        trace("Write proven");
+        transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
+        return;
    }
 }
