@@ -1,32 +1,4 @@
-contract AVMStepValidator {
-    /*
-        Validate the correctness of a step, given the result of its memory accesses.
-        
-        Read accesses are provided as two entries for each value read - the address followed
-        by the value that resides at this address (accepted as correct when this is run).
-        
-        If a read would access a different address than provided, return false.
-        
-        Write accesses are provided as two entries for each address written - the address
-        written and the value that we expect to be written there. The same address may be
-        written more than once in a step.
-        
-        If a write would write to a different address, or write a different value to that
-        address, return false.
-        
-        If the memory accesses constitute a valid sequence, return true.
-    */
-    function validateStep(uint256[] readAccesses, uint256[] writeAccesses) external returns (bool);
-    
-    /*
-        Return the memory state size used by this machine, as the power of two
-        number of words.
-        
-        If the size is 16, then the memory space is implicitly 2**16 words, each word
-        being 256 bits.
-    */
-    function getMemoryWordsLog2() returns (uint);
-}
+import 'AVMStepValidator.sol';
 
 contract AVMDisputeProcess {
     uint disputeCount;
@@ -48,7 +20,9 @@ contract AVMDisputeProcess {
     }
     
     modifier in_state(uint disputeId, DisputeState state) {
-        if (((uint) (disputes[disputeId].step) != 0) && (disputes[disputeId].state == state)) _;
+        if (((uint) (disputes[disputeId].step) != 0) && (disputes[disputeId].state == state)) {
+            _
+        }
     }
     
     event DisputeProgress(uint disputeId, DisputeState state);
@@ -59,11 +33,16 @@ contract AVMDisputeProcess {
     }
     
     modifier is_complainant(uint disputeId) {
-        if (msg.sender == disputes[disputeId].complainant) _;
+        if (msg.sender == disputes[disputeId].complainant) _
     }
     
     modifier is_defendant(uint disputeId) {
-        if (msg.sender == disputes[disputeId].defendant) _;
+        if (msg.sender == disputes[disputeId].defendant) _
+    }
+    
+    modifier noether {
+        if (msg.value > 0) throw;
+        _
     }
     
     // This dispute process is extremely sensitive to transaction replay, as
@@ -76,11 +55,11 @@ contract AVMDisputeProcess {
     modifier check_replay_tag(uint disputeId, bytes32 antiReplayTag) {
         if (antiReplayTag == disputes[disputeId].antiReplayTag) {
             disputes[disputeId].antiReplayTag = sha3(disputes[disputeId].antiReplayTag, block.blockhash(0));
-            _;
+            _
         }
     }
     
-    function getNextAntiReplayTag(uint disputeId) external returns (bytes32) {
+    function getNextAntiReplayTag(uint disputeId) external noether returns (bytes32) {
         return disputes[disputeId].antiReplayTag;
     }
     
@@ -119,47 +98,47 @@ contract AVMDisputeProcess {
         disputeStateToText[(uint) (DisputeState.RESOLVED_FOR_COMPLAINANT)] = "resolved (complainant won)";
     }
     
-    function getDisputeState(uint disputeId) constant returns (DisputeState) {
+    function getDisputeState(uint disputeId) constant external noether returns (DisputeState) {
         Dispute storage dispute = disputes[disputeId];
         return dispute.state;
     }
     
-    function getDisputeStateText(uint disputeId) constant returns (string) {
+    function getDisputeStateText(uint disputeId) constant external noether returns (string) {
         Dispute storage dispute = disputes[disputeId];
         return disputeStateToText[(uint) (dispute.state)];
     }
     
-    function getDisputeParticipants(uint disputeId) constant returns (address, address, address) {
+    function getDisputeParticipants(uint disputeId) constant external noether returns (address, address, address) {
         Dispute storage dispute = disputes[disputeId];
         return (dispute.defendant, dispute.complainant, dispute.querySource);
     }
     
-    function getStepFunction(uint disputeId) constant returns (AVMStepValidator) {
+    function getStepFunction(uint disputeId) constant external noether returns (AVMStepValidator) {
         Dispute storage dispute = disputes[disputeId];
         return (dispute.step);
     }
     
-    function getDisputeMemorySize(uint disputeId) constant returns (uint) {
+    function getDisputeMemorySize(uint disputeId) constant external noether returns (uint) {
         Dispute storage dispute = disputes[disputeId];
         return dispute.memoryStateSize;
     }
     
-    function getDisputeTimeoutState(uint disputeId) constant returns (uint, uint) {
+    function getDisputeTimeoutState(uint disputeId) constant external noether returns (uint, uint) {
         Dispute storage dispute = disputes[disputeId];
         return (dispute.lastResponseTime, dispute.maxResponseDelay);
     }
     
-    function getPeriodInDispute(uint disputeId) constant returns (uint, bytes32, uint, bytes32) {
+    function getPeriodInDispute(uint disputeId) constant external noether returns (uint, bytes32, uint, bytes32) {
         Dispute storage dispute = disputes[disputeId];
         return (dispute.firstAcceptedStep, dispute.firstAcceptedStateRoot, dispute.lastDisputedStep, dispute.lastDisputedStateRoot);
     }
     
-    function getMaxResponseStates(uint disputeId) constant returns (uint) {
+    function getMaxResponseStates(uint disputeId) constant external noether returns (uint) {
         Dispute storage dispute = disputes[disputeId];
         return (dispute.maxResponseStates);
     }
     
-    function getRequiredStateNumbers(uint disputeId) constant returns (uint[] memory) {
+    function getRequiredStateNumbers(uint disputeId) constant external noether returns (uint[] memory) {
         Dispute storage dispute = disputes[disputeId];
         
       uint expectedStateRootCount;
@@ -182,24 +161,24 @@ contract AVMDisputeProcess {
         return stateNumbers;
     }
     
-    function getSubmittedStateRoot(uint disputeId, uint stateId) constant returns (bytes32) {
+    function getSubmittedStateRoot(uint disputeId, uint stateId) constant external noether returns (bytes32) {
         Dispute storage dispute = disputes[disputeId];
         return dispute.buffer[stateId];
     }
     
-    function getMemoryTraceMeta(uint disputeId) constant returns (uint, uint) {
+    function getMemoryTraceMeta(uint disputeId) constant external noether returns (uint, uint) {
         Dispute storage dispute = disputes[disputeId];
         return (dispute.numReads, dispute.numWrites);
     }
     
-    function getMemoryRead(uint disputeId, uint readId) constant returns (uint, uint) {
+    function getMemoryRead(uint disputeId, uint readId) constant external noether returns (uint, uint) {
         Dispute storage dispute = disputes[disputeId];
         uint readAddress = (uint) (dispute.buffer[readId * 2]);
         uint value = (uint) (dispute.buffer[readId * 2 + 1]);
         return (readAddress, value);
     }
     
-    function getMemoryWrite(uint disputeId, uint writeId) constant returns (uint, uint, uint, bytes32) {
+    function getMemoryWrite(uint disputeId, uint writeId) constant external noether returns (uint, uint, uint, bytes32) {
         Dispute storage dispute = disputes[disputeId];
         uint offset = dispute.numReads * 2;
         uint writeAddress = (uint) (dispute.buffer[offset + writeId * 4]);
@@ -209,7 +188,7 @@ contract AVMDisputeProcess {
         return (writeAddress, initialValue, writtenValue, resultStateRoot);
     }
     
-    function openDispute(
+    function openDispute (
         AVMStepValidator step,
         address defendant,
         address complainant,
@@ -217,7 +196,7 @@ contract AVMDisputeProcess {
         bytes32 claimedFinalRoot,
         uint stepCount,
         uint maxResponseDelay,
-        uint maxResponseStates) returns (uint) {
+        uint maxResponseStates)  external noether returns (uint) {
         
         uint disputeId = disputeCount++;
         Dispute storage dispute = disputes[disputeId];
@@ -240,15 +219,16 @@ contract AVMDisputeProcess {
         return disputeId;
     }
     
-    function isResolvedForComplainant(uint disputeId) constant returns (bool) {
+    function isResolvedForComplainant(uint disputeId) constant external noether returns (bool) {
         return disputes[disputeId].state == DisputeState.RESOLVED_FOR_COMPLAINANT;
     }
     
-    function isResolvedForDefendant(uint disputeId) constant returns (bool) {
+    function isResolvedForDefendant(uint disputeId) constant external noether returns (bool) {
         return disputes[disputeId].state == DisputeState.RESOLVED_FOR_DEFENDANT;
     }
     
     function doTimeoutForComplainant(uint disputeId)
+        external noether
         is_complainant(disputeId) {
         Dispute storage dispute = disputes[disputeId];
 
@@ -263,6 +243,7 @@ contract AVMDisputeProcess {
     }
     
     function doTimeoutForDefendant(uint disputeId)
+        external noether
         is_complainant(disputeId) {
         Dispute storage dispute = disputes[disputeId];
 
@@ -279,6 +260,7 @@ contract AVMDisputeProcess {
         the complainant must identify the first that they believe is incorrect.
     */
     function doProvideStateRoots(uint disputeId, bytes32 antiReplayTag, bytes32[] stateRoots)
+        external noether
         in_state(disputeId, DisputeState.AWAIT_STEP_ROOTS)
         is_defendant(disputeId)
         check_replay_tag(disputeId, antiReplayTag) {
@@ -302,6 +284,7 @@ contract AVMDisputeProcess {
     }
     
     function doSelectDisputedStateRoot(uint disputeId, bytes32 antiReplayTag, uint disputedRoot)
+        external noether
         in_state(disputeId, DisputeState.AWAIT_DISPUTED_ROOT)
         is_complainant(disputeId)
         check_replay_tag(disputeId, antiReplayTag) {
@@ -347,6 +330,7 @@ contract AVMDisputeProcess {
     }
     
     function doProvideMemoryAccesses(uint disputeId, bytes32 antiReplayTag, uint256[] reads, uint256[] writes)
+        external noether
         in_state(disputeId, DisputeState.AWAIT_MEMORY_ACCESSES)
         is_defendant(disputeId)
         check_replay_tag(disputeId, antiReplayTag) {
@@ -354,7 +338,10 @@ contract AVMDisputeProcess {
         
         // Format of a read is address, value
         // Format of a write is address, original value, changed value, result state root
-        if (reads.length % 2 == 0 && writes.length % 4 == 0) {
+        if (reads.length % 2 == 0
+            && writes.length % 4 == 0
+            && (reads.length / 2) <= dispute.step.getMaximumReadsPerStep()
+            && (writes.length / 4) <= dispute.step.getMaximumWritesPerStep()) {
             // Store reads and writes
             dispute.numReads = reads.length / 2;
             dispute.numWrites = writes.length / 4;
@@ -366,15 +353,16 @@ contract AVMDisputeProcess {
                 dispute.buffer[reads.length + i] = (bytes32) (writes[i]);
             }
             
-            // Check whether the sequence of writes may result in the next state declared
+            // Check whether the last write in sequence results in the
+            // state root following this step
             if (writes.length == 0) {
-                // State root must not change without writes
+                // State root must not change without any writes
                 if (dispute.firstAcceptedStateRoot != dispute.lastDisputedStateRoot) {
                     transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
                     return;
                 }
             } else {
-                // Final write must result in the next state
+                // Final write must result in the declared end state
                 if ((bytes32) (writes[writes.length - 1]) != dispute.lastDisputedStateRoot) {
                     transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
                     return;
@@ -385,6 +373,7 @@ contract AVMDisputeProcess {
     }
     
     function doDisputeMemoryRead(uint disputeId, bytes32 antiReplayTag, uint readId)
+        external noether
         in_state(disputeId, DisputeState.AWAIT_COMPLAINANT_CHOICE)
         is_complainant(disputeId)
         check_replay_tag(disputeId, antiReplayTag) {
@@ -397,6 +386,7 @@ contract AVMDisputeProcess {
     }
     
     function doDisputeMemoryWrite(uint disputeId, bytes32 antiReplayTag, uint writeId)
+        external noether
         in_state(disputeId, DisputeState.AWAIT_COMPLAINANT_CHOICE)
         is_complainant(disputeId)
         check_replay_tag(disputeId, antiReplayTag) {
@@ -409,13 +399,14 @@ contract AVMDisputeProcess {
     }
     
     function doDisputeMemoryAccessSequence(uint disputeId, bytes32 antiReplayTag)
+        external noether
         in_state(disputeId, DisputeState.AWAIT_COMPLAINANT_CHOICE)
         is_complainant(disputeId)
         check_replay_tag(disputeId, antiReplayTag) {
         Dispute storage dispute = disputes[disputeId];
         
         uint256[] memory reads = new uint256[](dispute.numReads * 2); 
-        uint256[] memory writes = new uint256[](dispute.numWrites * 2);
+        uint256[] memory writes = new uint256[](dispute.numWrites * 3);
         
         for (uint i = 0; i < dispute.numReads; i++) {
             reads[2*i] = (uint256) (dispute.buffer[2*i]);
@@ -424,8 +415,9 @@ contract AVMDisputeProcess {
         
         uint offset = 2 * dispute.numReads;
         for (i = 0; i < dispute.numWrites; i++) {
-            writes[2*i] = (uint256) (dispute.buffer[offset + (4*i)]);
-            writes[2*i+1] = (uint256) (dispute.buffer[offset + (4*i) + 2]);
+            writes[3*i] = (uint256) (dispute.buffer[offset + (4*i)]);
+            writes[3*i+1] = (uint256) (dispute.buffer[offset + (4*i) + 1]);
+            writes[3*i+2] = (uint256) (dispute.buffer[offset + (4*i) + 2]);
         }
         
         // Note: whereas send is expected to return false in the event of
@@ -440,6 +432,7 @@ contract AVMDisputeProcess {
     }
    
     function doProveMemoryRead(uint disputeId, bytes32 antiReplayTag, bytes32[] merkleProof)
+        external noether
         in_state(disputeId, DisputeState.DISPUTED_READ)
         is_defendant(disputeId)
         check_replay_tag(disputeId, antiReplayTag) {
@@ -447,8 +440,8 @@ contract AVMDisputeProcess {
         
         uint readAddress = (uint) (dispute.buffer[dispute.selectedAccess * 2]);
         uint readValue = (uint) (dispute.buffer[dispute.selectedAccess * 2 + 1]);
-        bytes32 resultState;
         uint i;
+        bytes32 resultState;
         
         // Validate that the provided proof is of the correct length
         if (merkleProof.length != dispute.memoryStateSize) {
@@ -481,17 +474,17 @@ contract AVMDisputeProcess {
     }
     
     function doProveMemoryWrite(uint disputeId, bytes32 antiReplayTag, bytes32[] merkleProof)
+        external noether
         in_state(disputeId, DisputeState.DISPUTED_WRITE)
         is_defendant(disputeId)
         check_replay_tag(disputeId, antiReplayTag) {
         Dispute storage dispute = disputes[disputeId];
         
-        uint offset = dispute.numReads * 2;
-        uint writeAddress = (uint) (dispute.buffer[offset + dispute.selectedAccess * 4]);
+        uint writeAddress = (uint) (dispute.buffer[dispute.numReads * 2 + dispute.selectedAccess * 4]);
 
         bytes32 declaredStartState = dispute.firstAcceptedStateRoot;
         if (dispute.selectedAccess > 0) {
-            declaredStartState = dispute.buffer[offset + (dispute.selectedAccess - 1) * 4 + 3];
+            declaredStartState = dispute.buffer[dispute.numReads * 2 + (dispute.selectedAccess - 1) * 4 + 3];
         }
         
         bytes32 resultState;
@@ -508,7 +501,7 @@ contract AVMDisputeProcess {
         // Validate that using the proof with the original value stated
         // results in the original state root hash. This ensures that we
         // can change only the affected memory location within the memory.
-        resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 1]);
+        resultState = sha3(dispute.buffer[dispute.numReads * 2 + dispute.selectedAccess * 4 + 1]);
         for (i = 0; i < dispute.memoryStateSize; i++) {
             if ((writeAddress & 1) != 0) {
                 resultState = sha3(merkleProof[i], resultState);
@@ -526,10 +519,10 @@ contract AVMDisputeProcess {
         }
         
         // Validate that with the value written, the state root hash becomes
-        // the declared state root. This validates that the new state root
+        // the declared result state root. This validates that the new state root
         // has not been otherwise changed.
-        writeAddress = (uint) (dispute.buffer[offset + dispute.selectedAccess * 4]);
-        resultState = sha3(dispute.buffer[offset + dispute.selectedAccess * 4 + 2]);
+        writeAddress = (uint) (dispute.buffer[dispute.numReads * 2 + dispute.selectedAccess * 4]);
+        resultState = sha3(dispute.buffer[dispute.numReads * 2 + dispute.selectedAccess * 4 + 2]);
         for (i = 0; i < dispute.memoryStateSize; i++) {
             if ((writeAddress & 1) != 0) {
                 resultState = sha3(merkleProof[i], resultState);
@@ -539,7 +532,7 @@ contract AVMDisputeProcess {
             writeAddress /= 2;
         }
         
-        if (resultState != dispute.buffer[offset + dispute.selectedAccess * 4 + 3]) {
+        if (resultState != dispute.buffer[dispute.numReads * 2 + dispute.selectedAccess * 4 + 3]) {
             // Invalid proof
             trace("Invalid final state proof");
             transition(disputeId, DisputeState.RESOLVED_FOR_COMPLAINANT);
@@ -550,5 +543,9 @@ contract AVMDisputeProcess {
         trace("Write proven");
         transition(disputeId, DisputeState.RESOLVED_FOR_DEFENDANT);
         return;
+    }
+    
+    function() external noether {
+        // Do not accept payments
     }
 }

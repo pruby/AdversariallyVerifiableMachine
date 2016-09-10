@@ -11,7 +11,7 @@ contract CountdownStepFunction is AVMStepValidator {
             if (writeAccesses.length == 2 && writeAccesses[0] == 1) {
                 // Write address ok
                 cdtrace("write address ok");
-                if (readAccesses[1] > 0 && writeAccesses[1] == readAccesses[1] - 1) {
+                if (readAccesses[1] > 0 && writeAccesses[2] == readAccesses[1] - 1) {
                     // Correctly applied
                     cdtrace("write value ok");
                     return true;
@@ -28,6 +28,13 @@ contract CountdownStepFunction is AVMStepValidator {
     
     function getMemoryWordsLog2() returns (uint) {
         return (20);
+    }
+    
+    function getMaximumReadsPerStep() returns (uint) {
+        return 2;
+    }
+    function getMaximumWritesPerStep() returns (uint) {
+        return 1;
     }
 }
 
