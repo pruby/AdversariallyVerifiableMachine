@@ -6,74 +6,60 @@ contract AVMDemoStackMachine is AVMStepValidator {
     event traceNum(uint);
     using AVMMemoryContext32 for AVMMemoryContext32.Context;
     
-    enum Operation {
-        OP_NOP,
-        OP_PUSH,
-        OP_POP,
-        OP_LOAD,
-        OP_STORE,
-        OP_ADD,
-        OP_SUB,
-        OP_AND,
-        OP_OR,
-        OP_NOT,
-        OP_JZ
-    }
-    
     function validateStep(uint256[] readAccesses, uint256[] writeAccesses) external returns (bool) {
         AVMMemoryContext32.Context memory ctx = AVMMemoryContext32.initContext(readAccesses, writeAccesses, getMemoryWordsLog2());
         uint ip = ctx.read32(0);
         uint sp = ctx.read32(1);
         uint op = ctx.read32((ip++) & 65535) / 16777216;
         uint v; uint w;
-        if (op == Operation.OP_NOP) {
+        if (op == 0x0) {
             // NOP
-        } else if (op == Operation.OP_PUSH) {
+        } else if (op == 0x1) { // PUSH
             v = ctx.read32((ip++) & 65535);
             sp--;
             ctx.write32(1, sp);
             ctx.write32(sp & 65535, v);
-        } else if (op == Operation.OP_POP) {
+        } else if (op == 0x2) { // POP
             sp++;
             ctx.write32(1, sp);
-        } else if (op == Operation.OP_LOAD) {
+        } else if (op == 0x3) { // LOAD
             v = ctx.read32(sp & 65535);
             v = ctx.read32(v & 65535);
             ctx.write32(sp & 65535, v);
-        } else if (op == Operation.OP_STORE) {
+        } else if (op == 0x4) { // STORE
             v = ctx.read32(sp & 65535);
             w = ctx.read32((sp + 1) & 65535);
             sp += 2;
             ctx.write32(1, sp);
             ctx.write32(v & 65535, w);
-        } else if (op == Operation.OP_ADD) {
+        } else if (op == 0x5) { // ADD
             v = ctx.read32(sp & 65535);
             w = ctx.read32((sp + 1) & 65535);
             sp += 1;
             ctx.write32(1, sp);
             ctx.write32(sp & 65535, v + w);
-        } else if (op == Operation.OP_SUB) {
+        } else if (op == 0x6) { // SUB
             v = ctx.read32(sp & 65535);
             w = ctx.read32((sp + 1) & 65535);
             sp += 1;
             ctx.write32(1, sp);
             ctx.write32(sp & 65535, v - w);
-        } else if (op == Operation.OP_AND) {
+        } else if (op == 0x7) { // AND
             v = ctx.read32(sp & 65535);
             w = ctx.read32((sp + 1) & 65535);
             sp += 1;
             ctx.write32(1, sp);
             ctx.write32(sp & 65535, v & w);
-        } else if (op == Operation.OP_OR) {
+        } else if (op == 0x8) { // OR
             v = ctx.read32(sp & 65535);
             w = ctx.read32((sp + 1) & 65535);
             sp += 1;
             ctx.write32(1, sp);
             ctx.write32(sp & 65535, v | w);
-        } else if (op == Operation.OP_NOT) {
+        } else if (op == 0x9) { // NOT
             v = ctx.read32(sp & 65535);
             ctx.write32(sp & 65535, ~v);
-        } else if (op == Operation.OP_JZ) {
+        } else if (op == 0xa) { // JZ
             v = ctx.read32(sp & 65535);
             w = ctx.read32((sp + 1) & 65535);
             sp += 1;
