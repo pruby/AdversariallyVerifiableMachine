@@ -10,6 +10,8 @@ dispute.
 This repository implements the process of determining on the Ethereum chain whether or not a calculation was carried
 out correctly as a two-party game between a complainant and the party who made the calculation (the defendant).
 
+The verification game implemented in this repository is based on the concept published by Dr. Christian Reitwiessner at http://chriseth.github.io/notes/talks/truebit/#/ .
+
 ## Dispute Process
 
 When the outcome of a computation is contested, a contract may invoke the dispute process to resolve the difference.
