@@ -26,6 +26,11 @@ difference between outcomes.
 Once we reduce the dispute to a single, small step, we ask the complainant whether the issue is the initial values of memory,
 the process of the computation step, or the process of updating the Merkle tree as a result of any resulting writes to memory.
 
+If a calculation was performed correctly, the defendant is now able to prove that such a small piece was performed correctly to the
+Ethereum contract. If they cannot prove that they calculated this tiny piece correctly, we find in favour of the complainant.
+
+The internal state machine and transitions are illustrated here (defendant actions in blue, complainant actions in red, automatic in gray).
+
 ![Alt text](http://g.gravizo.com/g?
   digraph G {
     AWAIT_STEP_ROOTS;
