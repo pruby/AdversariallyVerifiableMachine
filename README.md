@@ -76,3 +76,19 @@ a matching committment, or put down a bond that repays this effort in the event 
 While I considered an off-chain version of this, in which parties sent each other signed committments, the fact that a dispute
 is being invoked implies that one of the parties has either been dishonest or acted in error, and in either case felt that it's
 best to keep the dispute resolution on record despite the cost.
+
+## Test Suite
+
+The current test suite in AVMTestSuite.sol runs the entire dispute process in one transaction. This is implemented in Solidity, not using a framework like Truffle, due to issues with obtaining the return value of an asynchronous transaction call (easily supported within Solidity, not so much within ether pudding). This can be run in Browser Solidity, but consumes a lot of gas, so be sure to increase the default gas to at least 2,000,000.
+
+All functions with names beginning "test" are expected to return a true value. I've personally had some issues with Chrome crashing (aw... snap) when running multiple tests - just reload and try that test again. I think this is thanks to the new tracing utilities piling up a load of memory, but can't be sure.
+
+The step function for this simply decrements the number at memory address 1, stopping when it hits zero. The trace of this behaviour is simple enough to validate strictly by hand.
+
+## Demo Stack Machine
+
+AVMDemoStackMachine.sol is in development as a demonstration of what this approach is capable of. It simulates a virtual machine operating on 32-bit values using a custom bytecode, and is likely to be the basis of a future test suite. It may be adjusted in the near future to use EVM bytecode (except external foreign call instructions, which will fail).
+
+The memory access routines in AVMMemoryContext32.sol are used to allow us to write the step process as we normally would in a bytecode interpreter, and records if any invalid memory access is made. This technique allows us to express complex step logic in a normal, readable way, without worrying about the details of comparing individual reads and writes to the step trace provided.
+
+Note that this does not validate the order of reads made - only that the read list includes all addresses needed. If we write to an address, this updates future reads to read the written value, which is what we would normally expect when writing an interpreter.
