@@ -74,7 +74,7 @@ contract AVMDemoStackMachine is AVMStepValidator {
         } else if (op == 0xa) { // JZ
             v = ctx.read32(sp);
             w = ctx.read32(sp + 4);
-            sp += 4;
+            sp += 8;
             ctx.write32(addrStackPointer, sp);
             if (v == 0) {
                 ip = w;
