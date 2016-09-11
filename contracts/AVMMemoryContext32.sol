@@ -6,8 +6,6 @@ library AVMMemoryContext32 {
         uint cachedRead;
         uint cachedReadValue;
         uint addressMask;
-        uint addressMask32;
-        uint addressMask256;
         bool valid;
     }
     
@@ -22,8 +20,6 @@ library AVMMemoryContext32 {
         ctx.writeAccesses = writeAccesses;
         ctx.writeIdx = 0;
         ctx.addressMask = (2 ** addressBits) - 1;
-        ctx.addressMask256 = ctx.addressMask ^ 31;
-        ctx.addressMask32 = ctx.addressMask ^ 3;
         ctx.cachedRead = (uint) (-1);
         ctx.cachedReadValue = 0;
         ctx.valid = true;
@@ -31,6 +27,8 @@ library AVMMemoryContext32 {
     }
     
     function read256(Context ctx, uint addr) internal returns (uint) {
+        if (!ctx.valid) return 0;
+        
         uint v;
         addr = addr & ctx.addressMask;
         
@@ -67,6 +65,7 @@ library AVMMemoryContext32 {
     }
     
     function write256(Context ctx, uint addr, uint value) internal {
+        if (!ctx.valid) return;
         addr = addr & ctx.addressMask;
         
         trace("Write");
@@ -105,6 +104,9 @@ library AVMMemoryContext32 {
     }
     
     function write32(Context ctx, uint addr, uint value) internal {
+        if (!ctx.valid) return;
+        addr = addr & ctx.addressMask;
+        
         trace("Write");
         if (ctx.writeAccesses.length < (ctx.writeIdx + 2)) {
             // Insufficient writes
