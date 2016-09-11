@@ -9,10 +9,13 @@ contract AVMDemoStackMachine is AVMStepValidator {
     event BadWriteValue(uint, uint, uint);
     using AVMMemoryContext32 for AVMMemoryContext32.Context;
     
+    uint constant addrInstructionPointer = 0;
+    uint constant addrStackPointer = 4;
+    
     function validateStep(uint256[] readAccesses, uint256[] writeAccesses) external returns (bool) {
         AVMMemoryContext32.Context memory ctx = AVMMemoryContext32.initContext(readAccesses, writeAccesses, getMemoryWordsLog2());
-        uint ip = ctx.read32(0);
-        uint sp = ctx.read32(4);
+        uint ip = ctx.read32(addrInstructionPointer);
+        uint sp = ctx.read32(addrStackPointer);
         uint op = ctx.readByte(ip++);
         uint v; uint w;
         if (op == 0x0) {
@@ -26,11 +29,11 @@ contract AVMDemoStackMachine is AVMStepValidator {
             trace("Value read from opcodes: ");
             traceNum(v);
             sp -= 4;
-            ctx.write32(4, sp);
+            ctx.write32(addrStackPointer, sp);
             ctx.write32(sp, v);
         } else if (op == 0x2) { // POP
             sp += 4;
-            ctx.write32(4, sp);
+            ctx.write32(addrStackPointer, sp);
         } else if (op == 0x3) { // LOAD
             v = ctx.read32(sp);
             v = ctx.read32(v);
@@ -39,31 +42,31 @@ contract AVMDemoStackMachine is AVMStepValidator {
             v = ctx.read32(sp);
             w = ctx.read32(sp + 4);
             sp += 8;
-            ctx.write32(4, sp);
+            ctx.write32(addrStackPointer, sp);
             ctx.write32(v, w);
         } else if (op == 0x5) { // ADD
             v = ctx.read32(sp);
             w = ctx.read32(sp + 4);
             sp += 4;
-            ctx.write32(4, sp);
+            ctx.write32(addrStackPointer, sp);
             ctx.write32(sp, v + w);
         } else if (op == 0x6) { // SUB
             v = ctx.read32(sp);
             w = ctx.read32(sp + 4);
             sp += 4;
-            ctx.write32(4, sp);
+            ctx.write32(addrStackPointer, sp);
             ctx.write32(sp, v - w);
         } else if (op == 0x7) { // AND
             v = ctx.read32(sp);
             w = ctx.read32(sp + 4);
             sp += 4;
-            ctx.write32(4, sp);
+            ctx.write32(addrStackPointer, sp);
             ctx.write32(sp, v & w);
         } else if (op == 0x8) { // OR
             v = ctx.read32(sp);
             w = ctx.read32(sp + 4);
             sp += 4;
-            ctx.write32(1, sp);
+            ctx.write32(addrStackPointer, sp);
             ctx.write32(sp, v | w);
         } else if (op == 0x9) { // NOT
             v = ctx.read32(sp);
@@ -72,7 +75,7 @@ contract AVMDemoStackMachine is AVMStepValidator {
             v = ctx.read32(sp);
             w = ctx.read32(sp + 4);
             sp += 4;
-            ctx.write32(4, sp);
+            ctx.write32(addrStackPointer, sp);
             if (v == 0) {
                 ip = w;
             }
@@ -81,7 +84,7 @@ contract AVMDemoStackMachine is AVMStepValidator {
             // Do not write anything, freeze here.
             return ctx.isValid();
         }
-        ctx.write32(0, ip);
+        ctx.write32(addrInstructionPointer, ip);
         return ctx.isValid();
     }
     
