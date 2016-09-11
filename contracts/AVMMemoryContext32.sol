@@ -97,7 +97,7 @@ library AVMMemoryContext32 {
         
         trace("Updating read values for write");
         for (uint i = 0; i < ctx.readAccesses.length; i += 2) {
-            if (ctx.readAccesses[i] == addr) {
+            if (ctx.readAccesses[i] == addr / 32) {
                 ctx.readAccesses[i+1] = value;
             }
         }
@@ -146,7 +146,7 @@ library AVMMemoryContext32 {
         
         trace("Updating future read values from write");
         for (uint i = 0; i < ctx.readAccesses.length; i += 2) {
-            if (ctx.readAccesses[i] == addr) {
+            if (ctx.readAccesses[i] == addr / 32) {
                 ctx.readAccesses[i+1] = value;
             }
         }
