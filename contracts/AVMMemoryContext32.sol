@@ -139,7 +139,7 @@ library AVMMemoryContext32 {
         trace("Reading write value");
         if (ctx.writeAccesses[ctx.writeIdx++] != result) {
             // Wrong write value
-            BadWriteValue(addr / 32, value, ctx.writeAccesses[ctx.writeIdx - 1]);
+            BadWriteValue(addr / 32, result, ctx.writeAccesses[ctx.writeIdx - 1]);
             ctx.valid = false;
             return;
         }
