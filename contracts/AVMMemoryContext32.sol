@@ -13,6 +13,9 @@ library AVMMemoryContext32 {
     
     event trace(string);
     event traceNum(uint);
+    event MissingRead(uint);
+    event BadWriteAddress(uint, uint);
+    event BadWriteValue(uint, uint, uint);
     function initContext(uint256[] memory readAccesses, uint256[] memory writeAccesses, uint addressBits) internal returns (Context memory) {
         Context memory ctx;
         ctx.readAccesses = readAccesses;
@@ -38,6 +41,7 @@ library AVMMemoryContext32 {
         }
         
         ctx.valid = false;
+        MissingRead(addr / 32);
         return 0;
     }
     
@@ -76,19 +80,18 @@ library AVMMemoryContext32 {
         trace("Reading write address");
         if (ctx.writeAccesses[ctx.writeIdx++] != (addr / 32)) {
             // Wrong write address
-            trace("Wrong write address");
-            traceNum(addr);
+            BadWriteAddress(addr / 32, ctx.writeAccesses[ctx.writeIdx-1]);
             ctx.valid = false;
             return;
         }
         
+        // Whole overwrite - ignore prior value
         ctx.writeIdx++;
         
         trace("Reading write value");
         if (ctx.writeAccesses[ctx.writeIdx++] != value) {
             // Wrong write value
-            trace("Wrong write value");
-            traceNum(value);
+            BadWriteValue(addr / 32, value, ctx.writeAccesses[ctx.writeIdx - 1]);
             ctx.valid = false;
             return;
         }
@@ -113,8 +116,7 @@ library AVMMemoryContext32 {
         trace("Reading write address");
         if (ctx.writeAccesses[ctx.writeIdx++] != (addr / 32)) {
             // Wrong write address
-            trace("Wrong write address");
-            traceNum(addr / 8);
+            BadWriteAddress(addr / 32, ctx.writeAccesses[ctx.writeIdx-1]);
             ctx.valid = false;
             return;
         }
@@ -135,8 +137,7 @@ library AVMMemoryContext32 {
         trace("Reading write value");
         if (ctx.writeAccesses[ctx.writeIdx++] != result) {
             // Wrong write value
-            trace("Wrong write value");
-            traceNum(result);
+            BadWriteValue(addr / 32, value, ctx.writeAccesses[ctx.writeIdx - 1]);
             ctx.valid = false;
             return;
         }
