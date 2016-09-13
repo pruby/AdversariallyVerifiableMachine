@@ -3,6 +3,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <math.h>
+
+// *Really* minimal PCG32 code / (c) 2014 M.E. O'Neill / pcg-random.org
+// Licensed under Apache License 2.0 (NO WARRANTY, etc. see website)
+
+typedef struct { uint64_t state;  uint64_t inc; } pcg32_random_t;
+
+uint32_t pcg32_random_r(pcg32_random_t* rng)
+{
+    uint64_t oldstate = rng->state;
+    // Advance internal state
+    rng->state = oldstate * 6364136223846793005ULL + (rng->inc|1);
+    // Calculate output function (XSH RR), uses old state for max ILP
+    uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
+    uint32_t rot = oldstate >> 59u;
+    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+}
 
 void print_hashes(merkle_tree_memory* memory)
 {
@@ -29,8 +46,12 @@ int main(int argc, char** argv)
 	printf("\n");
 	printf("\n");
 	merkle_tree_memory memory;
-	merkle_tree_memory_init(&memory, 13);
+	merkle_tree_memory_init(&memory, 24);
 	merkle_tree_recalculate_hashes(&memory);
+  
+  pcg32_random_t random;
+  random.state = rand();
+  random.inc = 1;
 
 	printf("First calculation:\n");
 	print_hashes(&memory);
@@ -61,9 +82,9 @@ int main(int argc, char** argv)
   gettimeofday(&tv,NULL);
   hashTime = 0;
   startTime = 1000000 * tv.tv_sec + tv.tv_usec;
-	for (unsigned j = 0; j < 100; j++)
+	for (unsigned j = 0; j < 15; j++)
 	{
-		for (unsigned i = 0; i < 10000; i++)
+		for (unsigned i = 0; i < 1000000; i++)
 		{
 			merkle_tree_memory_set(&memory, i % memory.capacity, z);
 		}
@@ -77,16 +98,16 @@ int main(int argc, char** argv)
   gettimeofday(&tv,NULL);
   stopTime = 1000000 * tv.tv_sec + tv.tv_usec;
   
-  fprintf(stderr, "Sequential setting trial took %0.5f seconds, of which %0.5f us hashing.\n", ((float) (stopTime - startTime)) / 1000000.0, ((float) hashTime) / 1000000.0);
+  fprintf(stderr, "Sequential trial took %0.5f seconds, of which %0.5f us hashing.\n", ((float) (stopTime - startTime)) / 1000000.0, ((float) hashTime) / 1000000.0);
 	
   gettimeofday(&tv,NULL);
   hashTime = 0;
   startTime = 1000000 * tv.tv_sec + tv.tv_usec;
-	for (unsigned j = 0; j < 100; j++)
+	for (unsigned j = 0; j < 15; j++)
 	{
-		for (unsigned i = 0; i < 10000; i++)
+		for (unsigned i = 0; i < 1000000; i++)
 		{
-			merkle_tree_memory_set(&memory, rand() % memory.capacity, z);
+			merkle_tree_memory_set(&memory, pcg32_random_r(&random) % memory.capacity, z);
 		}
     gettimeofday(&tv,NULL);
     hashStartTime = 1000000 * tv.tv_sec + tv.tv_usec;
@@ -98,16 +119,16 @@ int main(int argc, char** argv)
   gettimeofday(&tv,NULL);
   stopTime = 1000000 * tv.tv_sec + tv.tv_usec;
   
-  fprintf(stderr, "Random setting trial took %0.5f seconds, of which %0.5f hashing.\n", ((float) (stopTime - startTime)) / 1000000.0, ((float) hashTime) / 1000000.0);
+  fprintf(stderr, "Random trial took %0.5f seconds, of which %0.5f hashing.\n", ((float) (stopTime - startTime)) / 1000000.0, ((float) hashTime) / 1000000.0);
 	
   gettimeofday(&tv,NULL);
   hashTime = 0;
   startTime = 1000000 * tv.tv_sec + tv.tv_usec;
-	for (unsigned j = 0; j < 100; j++)
+	for (unsigned j = 0; j < 15; j++)
 	{
-		for (unsigned i = 0; i < 10000; i++)
+		for (unsigned i = 0; i < 1000000; i++)
 		{
-			merkle_tree_memory_set(&memory, (int) sqrtf(rand() % (memory.capacity * memory.capacity)), z);
+			merkle_tree_memory_set(&memory, pcg32_random_r(&random) % 524288, z);
 		}
     gettimeofday(&tv,NULL);
     hashStartTime = 1000000 * tv.tv_sec + tv.tv_usec;
@@ -119,5 +140,5 @@ int main(int argc, char** argv)
   gettimeofday(&tv,NULL);
   stopTime = 1000000 * tv.tv_sec + tv.tv_usec;
   
-  fprintf(stderr, "Skewed setting trial took %0.5f seconds, of which %0.5f hashing.\n", ((float) (stopTime - startTime)) / 1000000.0, ((float) hashTime) / 1000000.0);
+  fprintf(stderr, "Random in first 16MB took %0.5f seconds, of which %0.5f hashing.\n", ((float) (stopTime - startTime)) / 1000000.0, ((float) hashTime) / 1000000.0);
 }

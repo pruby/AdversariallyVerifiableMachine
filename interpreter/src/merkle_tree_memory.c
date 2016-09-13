@@ -2,9 +2,11 @@
 #include "sha3.h"
 
 #include <string.h>
+#include <assert.h>
 
 void merkle_tree_memory_init(merkle_tree_memory *memory, unsigned addressBits)
 {
+  assert(addressBits <= 24);
 	memory->capacity = 1 << addressBits;
 	memory->buffer = malloc(32 * 2 * memory->capacity);
 	memset(memory->buffer, 0, 32 * 2 * memory->capacity);
