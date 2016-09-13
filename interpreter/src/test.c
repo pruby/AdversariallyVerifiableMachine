@@ -1,5 +1,6 @@
 #include "merkle_tree_memory.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -23,7 +24,7 @@ uint32_t pcg32_random_r(pcg32_random_t* rng)
 
 void print_hashes(merkle_tree_memory* memory)
 {
-	for (unsigned i = 1; i < 32; i++)
+	for (uint32_t i = 1; i < 32; i++)
 	{
 	printf(
 		"0x%08x%08x%08x%08x%08x%08x%08x%08x\n",
@@ -41,8 +42,8 @@ void print_hashes(merkle_tree_memory* memory)
 
 int main(int argc, char** argv)
 {
-	unsigned v[8] = {0,1,2,3,4,5,6,7};
-	unsigned z[8] = {0,0,0,0,0,0,0,0};
+	uint32_t v[8] = {0,1,2,3,4,5,6,7};
+	uint32_t z[8] = {0,0,0,0,0,0,0,0};
 	printf("\n");
 	printf("\n");
 	merkle_tree_memory memory;
@@ -76,15 +77,15 @@ int main(int argc, char** argv)
 	print_hashes(&memory);
 	printf("\n");
   
-  unsigned long startTime, stopTime, hashStartTime, hashStopTime, hashTime;
+  uint64_t startTime, stopTime, hashStartTime, hashStopTime, hashTime;
 	
   struct timeval tv;
   gettimeofday(&tv,NULL);
   hashTime = 0;
   startTime = 1000000 * tv.tv_sec + tv.tv_usec;
-	for (unsigned j = 0; j < 15; j++)
+	for (uint32_t j = 0; j < 15; j++)
 	{
-		for (unsigned i = 0; i < 1000000; i++)
+		for (uint32_t i = 0; i < 1000000; i++)
 		{
 			merkle_tree_memory_set(&memory, i % memory.capacity, z);
 		}
@@ -103,9 +104,9 @@ int main(int argc, char** argv)
   gettimeofday(&tv,NULL);
   hashTime = 0;
   startTime = 1000000 * tv.tv_sec + tv.tv_usec;
-	for (unsigned j = 0; j < 15; j++)
+	for (uint32_t j = 0; j < 15; j++)
 	{
-		for (unsigned i = 0; i < 1000000; i++)
+		for (uint32_t i = 0; i < 1000000; i++)
 		{
 			merkle_tree_memory_set(&memory, pcg32_random_r(&random) % memory.capacity, z);
 		}
@@ -124,9 +125,9 @@ int main(int argc, char** argv)
   gettimeofday(&tv,NULL);
   hashTime = 0;
   startTime = 1000000 * tv.tv_sec + tv.tv_usec;
-	for (unsigned j = 0; j < 15; j++)
+	for (uint32_t j = 0; j < 15; j++)
 	{
-		for (unsigned i = 0; i < 1000000; i++)
+		for (uint32_t i = 0; i < 1000000; i++)
 		{
 			merkle_tree_memory_set(&memory, pcg32_random_r(&random) % 524288, z);
 		}

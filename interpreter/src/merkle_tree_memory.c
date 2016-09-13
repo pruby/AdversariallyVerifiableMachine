@@ -4,7 +4,7 @@
 #include <string.h>
 #include <assert.h>
 
-void merkle_tree_memory_init(merkle_tree_memory *memory, unsigned addressBits)
+void merkle_tree_memory_init(merkle_tree_memory *memory, uint32_t addressBits)
 {
   assert(addressBits <= 24);
 	memory->capacity = 1 << addressBits;
@@ -17,14 +17,14 @@ void merkle_tree_memory_free(merkle_tree_memory *memory)
 	free(memory->buffer);
 }
 
-void merkle_tree_invalidate_hash(merkle_tree_memory *memory, unsigned address)
+void merkle_tree_invalidate_hash(merkle_tree_memory *memory, uint32_t address)
 {
 	address = address + memory->capacity;
 	while (address > 1)
 	{
 		address = address / 2;
-		unsigned i;
-		unsigned zero = 1;
+		uint32_t i;
+		uint32_t zero = 1;
 		for (i = 0; i < 8; ++i)
 		{
 			if (memory->buffer[8 * address + i] != 0)
@@ -42,9 +42,10 @@ void merkle_tree_invalidate_hash(merkle_tree_memory *memory, unsigned address)
 	}
 }
 
-void merkle_tree_memory_set(merkle_tree_memory *memory, unsigned address, unsigned value[8])
+void merkle_tree_memory_set(merkle_tree_memory *memory, uint32_t address, const uint32_t value[8])
 {
-	unsigned i;
+  address = (address / 32) & (memory->capacity - 1);
+	uint32_t i;
 	for (i = 0; i < 8; ++i)
 	{
 		memory->buffer[(memory->capacity + address) * 8 + i] = value[i];
@@ -53,10 +54,49 @@ void merkle_tree_memory_set(merkle_tree_memory *memory, unsigned address, unsign
   merkle_tree_invalidate_hash(memory, address);
 }
 
+void merkle_tree_memory_set32(merkle_tree_memory *memory, uint32_t address, uint32_t value)
+{
+  address = (address / 4) & ((memory->capacity * 8) - 1);
+	uint32_t i;
+	memory->buffer[memory->capacity * 8 + address + i] = value;
+  
+  merkle_tree_invalidate_hash(memory, address / 8);
+}
+
+void merkle_tree_memory_setByte(merkle_tree_memory *memory, uint32_t address, uint8_t value)
+{
+  address = address & ((memory->capacity * 32) - 1);
+	((uint8_t*) memory->buffer)[memory->capacity * 32 + address] = value;
+  
+  merkle_tree_invalidate_hash(memory, address / 32);
+}
+
+void merkle_tree_memory_get(const merkle_tree_memory *memory, uint32_t address, uint32_t out[8])
+{
+  address = (address / 32) & (memory->capacity - 1);
+	uint32_t i;
+	for (i = 0; i < 8; ++i)
+	{
+		out[i] = memory->buffer[(memory->capacity + address) * 8 + i];
+	}
+}
+
+uint32_t merkle_tree_memory_get32(const merkle_tree_memory *memory, uint32_t address)
+{
+  address = (address / 4) & ((memory->capacity * 8) - 1);
+	return memory->buffer[memory->capacity * 8 + address];
+}
+
+uint8_t merkle_tree_memory_getByte(const merkle_tree_memory *memory, uint32_t address)
+{
+  address = address & ((memory->capacity * 32) - 1);
+	return ((uint8_t*) memory->buffer)[memory->capacity * 32 + address];
+}
+
 void merkle_tree_recalculate_hashes(merkle_tree_memory *memory)
 {
-	unsigned i;
-	unsigned c;
+	uint32_t i;
+	uint32_t c;
 	for (i = memory->capacity - 1; i >= memory->capacity / 2; i--)
 	{
 		if (!memory->buffer[i * 8])
