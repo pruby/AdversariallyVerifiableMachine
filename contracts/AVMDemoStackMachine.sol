@@ -13,9 +13,10 @@ contract AVMDemoStackMachine is AVMStepValidator {
     uint constant mask32 = 4294967295;
     uint constant offsetInstructionPointer = 26959946667150639794667015087019630673637144422540572481103610249216;
     uint constant offsetStackPointer = 6277101735386680763835789423207666416102355444464034512896;
+    uint constant memorySize = 262144;
     
     function validateStep(uint256[] readAccesses, uint256[] writeAccesses) external returns (bool) {
-        AVMMemoryContext32.Context memory ctx = AVMMemoryContext32.initContext(readAccesses, writeAccesses, getMemoryWordsLog2());
+        AVMMemoryContext32.Context memory ctx = AVMMemoryContext32.initContext(0, memorySize, readAccesses, writeAccesses);
         uint256 statusRegister = ctx.read256(addrStatusRegister);
         uint ip = (statusRegister / offsetInstructionPointer) & mask32;
         uint sp = (statusRegister / offsetStackPointer) & mask32;

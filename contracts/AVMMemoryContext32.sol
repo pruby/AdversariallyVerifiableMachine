@@ -5,8 +5,10 @@ library AVMMemoryContext32 {
         uint writeIdx;
         uint cachedRead;
         uint cachedReadValue;
-        uint addressMask;
+        uint windowOffset;
+        uint windowLength;
         bool valid;
+        bool fault;
     }
     
     event trace(string);
@@ -14,15 +16,17 @@ library AVMMemoryContext32 {
     event MissingRead(uint);
     event BadWriteAddress(uint, uint);
     event BadWriteValue(uint, uint, uint);
-    function initContext(uint256[] memory readAccesses, uint256[] memory writeAccesses, uint addressBits) internal returns (Context memory) {
+    function initContext(uint offset, uint window, uint256[] memory readAccesses, uint256[] memory writeAccesses) internal returns (Context memory) {
         Context memory ctx;
         ctx.readAccesses = readAccesses;
         ctx.writeAccesses = writeAccesses;
         ctx.writeIdx = 0;
-        ctx.addressMask = (2 ** addressBits) - 1;
+        ctx.windowOffset = offset;
+        ctx.windowLength = window;
         ctx.cachedRead = (uint) (-1);
         ctx.cachedReadValue = 0;
         ctx.valid = true;
+        ctx.fault = false;
         return ctx;
     }
     
@@ -30,7 +34,12 @@ library AVMMemoryContext32 {
         if (!ctx.valid) return 0;
         
         uint v;
-        addr = addr & ctx.addressMask;
+        if (addr + 31 > ctx.windowLength) {
+            ctx.fault = true;
+            return 0;
+        } else {
+            addr = addr + ctx.windowOffset;
+        }
         
         for (uint i = 0; i < ctx.readAccesses.length; i += 2) {
             if (ctx.readAccesses[i] == (addr / 32)) {
@@ -66,7 +75,12 @@ library AVMMemoryContext32 {
     
     function write256(Context ctx, uint addr, uint value) internal {
         if (!ctx.valid) return;
-        addr = addr & ctx.addressMask;
+        if (addr + 31 > ctx.windowLength) {
+            ctx.fault = true;
+            return;
+        } else {
+            addr = addr + ctx.windowOffset;
+        }
         
         trace("Write");
         if (ctx.writeAccesses.length < (ctx.writeIdx + 2)) {
@@ -105,7 +119,12 @@ library AVMMemoryContext32 {
     
     function write32(Context ctx, uint addr, uint value) internal {
         if (!ctx.valid) return;
-        addr = addr & ctx.addressMask;
+        if (addr + 3 > ctx.windowLength) {
+            ctx.fault = true;
+            return;
+        } else {
+            addr = addr + ctx.windowOffset;
+        }
         
         trace("Write");
         if (ctx.writeAccesses.length < (ctx.writeIdx + 2)) {
@@ -160,5 +179,4 @@ library AVMMemoryContext32 {
         return ctx.valid;
     }
 }
-
 
