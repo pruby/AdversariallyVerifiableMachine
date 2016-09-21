@@ -34,7 +34,7 @@ library AVMMemoryContext32 {
         if (!ctx.valid) return 0;
         
         uint v;
-        if (addr + 31 > ctx.windowLength) {
+        if (addr / 32 >= ctx.windowLength / 32) {
             ctx.fault = true;
             return 0;
         } else {
@@ -75,7 +75,7 @@ library AVMMemoryContext32 {
     
     function write256(Context ctx, uint addr, uint value) internal {
         if (!ctx.valid) return;
-        if (addr + 31 > ctx.windowLength) {
+        if (addr / 32 >= ctx.windowLength / 32) {
             ctx.fault = true;
             return;
         } else {
@@ -119,7 +119,7 @@ library AVMMemoryContext32 {
     
     function write32(Context ctx, uint addr, uint value) internal {
         if (!ctx.valid) return;
-        if (addr + 3 > ctx.windowLength) {
+        if (addr / 32 >= ctx.windowLength / 32) {
             ctx.fault = true;
             return;
         } else {
